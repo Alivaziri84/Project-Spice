@@ -1,0 +1,3 @@
+D:/Project_Spice/cmake-build-debug/CMakeFiles/Project_Spice.dir
+D:/Project_Spice/cmake-build-debug/CMakeFiles/edit_cache.dir
+D:/Project_Spice/cmake-build-debug/CMakeFiles/rebuild_cache.dir
