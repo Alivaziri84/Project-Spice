@@ -1,4 +1,3 @@
-//rtyu
 #include <iostream>
 #include <regex>
 #include <vector>
@@ -165,7 +164,7 @@ public:
     Diode(string t,string n,int n1,int n2, double v) : Element(t,n,n1,n2,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
-class Nodes{
+class Node{
 public:
     string name;
     int index;
@@ -180,24 +179,31 @@ private:
     vector<VoltageSource> voltageSource={};
     vector<CurrentSource> currentSource={};
     vector<Diode> diode={};
-    vector<Nodes> nodes={};
+    vector<Node> node={};
     Matrix_solve matrixSolve;
     bool isCircuitComplete(bool first,int index){
-        static vector<vector<int>> v;
-        static vector<int> v2;
-        if(first== true){
-            for(int i=0;i<nodes.size();i++){
-                v.push_back(nodes[i].NeighbourNodes);
+        static vector<bool> v;
+        if(first){
+            for(int i=0;i<node.size();i++){
+                if(node[i].NeighbourNodes.size()==1)return false;
+            }
+            v.clear();
+            for(int i=0;i<node.size();i++){
+                v.push_back(false);
             }
         }
-        bool b=0;
-        for(int i=0;i<v[index].size();i++){
-            bool b2=0;
-            for(int j=0;j<v2.size();j++){
-                if(1){}
-            }
+        v[index]=true;
+        for(int i=0;i<node[index].NeighbourNodes.size();i++){
+            int n=node[index].NeighbourNodes[i];
+            if (!v[n]) isCircuitComplete(false,n);
         }
-
+        if(first){
+            for(int i=0;i<v.size();i++){
+                if(!v[i]) return false;
+            }
+            return true;
+        }
+        return false;
     }
 public:
     string input_type="null";
