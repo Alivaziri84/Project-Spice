@@ -314,6 +314,7 @@ public:
         else if(input_type=="DC_print"){}
     }
 };
+
 class View{
 private:
     Circuit circuit;
