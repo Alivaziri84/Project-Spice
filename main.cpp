@@ -208,54 +208,70 @@ private:
 public:
     string input_type="null";
     void Erorr_handling(string get){
-        if(get.find("add")==0) {
-            regex pattern[]={regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()")};
-            if(regex_match(get,pattern[0])){}
-            else if(regex_match(get,pattern[1])){}
-            else if(regex_match(get,pattern[2])){}
-            else if(regex_match(get,pattern[3])){}
-            else if(regex_match(get,pattern[4])){}
-            else if(regex_match(get,pattern[5])){}
-            else if(regex_match(get,pattern[6])){}
-            else if(regex_match(get,pattern[7])){}
-            else if(regex_match(get,pattern[8])){}
-            else if(regex_match(get,pattern[9])){}
-            else if(regex_match(get,pattern[10])){}
-            else if(regex_match(get,pattern[11])){}
-            else if(regex_match(get,pattern[12])){}
+        smatch match;
+        if(regex_match(get,regex (R"(^\s*add\b.*)"))) {
+            regex pattern[]={regex(R"(^\s*add\s+(R\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+(C\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+(L\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+(D\w+)\s+(\w+)\s+(\w+)\s+([DZ])\s*$)"),
+                             regex(R"(^\s*add\s+GND\s+(\w+)\s*$)"),
+                             regex(R"(^\s*add\s+VoltageSource(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+CurrentSource(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+V(\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
+                             regex(R"(^\s*add\s+E(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),
+                             regex(R"(^\s*add\s+G(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),
+                             regex(R"(^\s*add\s+H(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),
+                             regex(R"(^\s*add\s+F(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)")
+            };
+            if(regex_search(get,match,pattern[0])){}
+            else if(regex_search(get,match,pattern[1])){}
+            else if(regex_search(get,match,pattern[2])){}
+            else if(regex_search(get,match,pattern[3])){}
+            else if(regex_search(get,match,pattern[4])){}
+            else if(regex_search(get,match,pattern[5])){}
+            else if(regex_search(get,match,pattern[6])){}
+            else if(regex_search(get,match,pattern[7])){}
+            else if(regex_search(get,match,pattern[8])){}
+            else if(regex_search(get,match,pattern[9])){}
+            else if(regex_search(get,match,pattern[10])){}
+            else if(regex_search(get,match,pattern[11])){}
             else cout << "Error: Syntax error" << endl;
         }
-        else if(get.find("delete")==0){
-            regex pattern[]={regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()"),regex(R"()")};
-            if(regex_match(get,pattern[0])){}
-            else if(regex_match(get,pattern[1])){}
-            else if(regex_match(get,pattern[2])){}
-            else if(regex_match(get,pattern[3])){}
-            else if(regex_match(get,pattern[4])){}
-            else if(regex_match(get,pattern[5])){}
-            else if(regex_match(get,pattern[6])){}
+        else if(regex_match(get,regex (R"(\s*delete\b.*)"))){
+            regex pattern[]={regex(R"(^\s*delete\s+(R\w+)\s*$)"),
+                             regex(R"(^\s*delete\s+(C\w+)\s*$)"),
+                             regex(R"(^\s*delete\s+(L\w+)\s*$)"),
+                             regex(R"(^\s*delete\s+(D\w+)\s*$)"),
+                             regex(R"(^\s*delete\s+GND\s+(\w+)\s*$)"),
+                             regex(R"(^\s*delete\s+VoltageSource(\w+)\s*$)"),
+                             regex(R"(^\s*delete\s+CurrentSource(\w+)\s*$)")};
+            if(regex_search(get,match,pattern[0])){}
+            else if(regex_search(get,match,pattern[1])){}
+            else if(regex_search(get,match,pattern[2])){}
+            else if(regex_search(get,match,pattern[3])){}
+            else if(regex_search(get,match,pattern[4])){}
+            else if(regex_search(get,match,pattern[5])){}
+            else if(regex_search(get,match,pattern[6])){}
             else cout << "Error: Syntax error" << endl;
         }
-        else if(get.find("nodes")==0){
-            regex pattern(R"()");
-            if(regex_match(get,pattern)){}
+        else if(regex_match(get,regex (R"(\s*nodes\s*)"))){
+            input_type="nodes";
+        }
+        else if(regex_match(get,regex (R"(\s*list\b.*)"))){
+            regex pattern[]={regex(R"(^\s*list\s*$)"),regex(R"(^\s*list\s*\[\s*(R|C|L|D|VoltageSource|CurrentSource)\s*\]\s*$)")};
+            if(regex_search(get,match,pattern[0])){}
+            else if(regex_search(get,match,pattern[1])){}
             else cout << "Error: Syntax error" << endl;
         }
-        else if(get.find("list")==0){
-            regex pattern[]={regex(R"()"),regex(R"()")};
-            if(regex_match(get,pattern[0])){}
-            else if(regex_match(get,pattern[1])){}
-            else cout << "Error: Syntax error" << endl;
+        else if(regex_match(get,regex (R"(\s*rename\b.*)"))){
+            if(regex_search(get,match,regex (R"(^\s*rename\s+node\s+(\w+)\s+(\w+)\s*$)"))){}
+            else cout <<"Error: Syntax error" << endl;
         }
-        else if(get.find("rename")==0){
-            regex pattern(R"()");
-            if(regex_match(get,pattern)){}
-            else cout << "Error: Syntax error" << endl;
-        }
-        else if(get.find("print")==0){
-            regex pattern[]={regex(R"()"),regex(R"()")};
-            if(regex_match(get,pattern[0])){}
-            else if(regex_match(get,pattern[1])){}
+        else if(regex_match(get,regex (R"(\s*print\b.*)"))){
+            regex pattern[]={regex(R"(^\s*print\s+TRAN$)"),
+                             regex(R"()")};
+            if(regex_search(get,match,pattern[0])){}
+            else if(regex_search(get,match,pattern[1])){}
             else cout << "Error: Syntax error" << endl;
         }
         else cout << "Error: Syntax error" << endl;
@@ -269,7 +285,6 @@ public:
         else if(input_type=="add_VoltageSource"){}
         else if(input_type=="add_CurrentSource"){}
         else if(input_type=="add_VoltageSource_sin"){}
-        else if(input_type=="add_VoltageSource_pulse"){}
         else if(input_type=="add_VoltageSource->voltage"){}
         else if(input_type=="add_VoltageSource->current"){}
         else if(input_type=="add_CurrentSource->voltage"){}
