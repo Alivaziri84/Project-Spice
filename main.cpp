@@ -104,21 +104,21 @@ public:
         }
     }
 };
+class Node{
+public:
+    string name;
+    int index;
+    bool is_ground=0;
+};
 class Element{
 protected:
     string type;
     string name;
-    int node1,node2;
     double value;
 public:
-    Element(string t,string n,int n1,int n2, double v) : type(t),name(n),node1(n1),node2(n2),value(v){}
+    Node node1,node2;
+    Element(string t,string n, double v) : type(t),name(n),value(v){}
     virtual void Add(vector<vector<double>> & G,vector<double> I)=0;
-    int getIndex1(){
-        return node1;
-    };
-    int getIndex2(){
-        return node2;
-    };
     string getName(){
         return name;
     }
@@ -135,52 +135,39 @@ public:
 };
 class Resistor : public Element{
 public:
-    Resistor(string t,string n,int n1,int n2, double v) : Element(t,n,n1,n2,v){}
+    Resistor(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
 class Capacitor : public Element{
 public:
-    Capacitor(string t,string n,int n1,int n2, double v) : Element(t,n,n1,n2,v){}
+    Capacitor(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
 class Inductor : public Element{
 public:
-    Inductor(string t,string n,int n1,int n2, double v) : Element(t,n,n1,n2,v){}
+    Inductor(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{
     }
 };
 class VoltageSource : public Element{
 public:
-    VoltageSource(string t,string n,int n1,int n2, double v) : Element(t,n,n1,n2,v){}
+    VoltageSource(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
 class CurrentSource : public Element{
 public:
-    CurrentSource(string t,string n,int n1,int n2, double v) : Element(t,n,n1,n2,v){}
+    CurrentSource(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
 class Diode : public Element{
 public:
-    Diode(string t,string n,int n1,int n2, double v) : Element(t,n,n1,n2,v){}
+    Diode(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
-};
-class Node{
-public:
-    string name;
-    int index;
-    vector<int> NeighbourNodes={};
 };
 class Circuit{
 private:
-    vector<Element*> element={};
-    vector<Resistor> resistor={};
-    vector<Capacitor> capacitor={};
-    vector<Inductor> inductor={};
-    vector<VoltageSource> voltageSource={};
-    vector<CurrentSource> currentSource={};
-    vector<Diode> diode={};
-    vector<Node> node={};
     Matrix_solve matrixSolve;
+    /*
     bool isCircuitComplete(bool first,int index){
         static vector<bool> v;
         if(first){
@@ -205,67 +192,280 @@ private:
         }
         return false;
     }
+     */
 public:
-    string input_type="null";
-    void Erorr_handling(string get){
-        smatch match;
+    void containsElementWithName(bool &b, string s){
+        for(int i=0;i<element.size();i++){
+            if(element[i]->getName()==s){
+                b=!b;
+                break;
+            }
+        }
+    }
+    vector<unique_ptr<Element>> element={};
+    vector<Node> node={};
+    void Add(smatch match,string input_type){
+        if(input_type=="add_Resistor"){}
+        else if(input_type=="add_Capacitor"){}
+        else if(input_type=="add_Inductor"){}
+        else if(input_type=="add_Diode"){}
+        else if(input_type=="add_GND"){}
+        else if(input_type=="add_VoltageSource"){}
+        else if(input_type=="add_CurrentSource"){}
+        else if(input_type=="add_VoltageSource_sin"){}
+        else if(input_type=="add_CurrentSource_sin"){}
+        else if(input_type=="add_VoltageSource->voltage"){}
+        else if(input_type=="add_CurrentSource->voltage"){}
+        else if(input_type=="add_VoltageSource->current"){}
+        else if(input_type=="add_CurrentSource->current"){}
+    }
+    void Delete(smatch match,string input_type){
+        if(input_type=="delete_Element"){}
+        else if(input_type=="delete_GND"){}
+    }
+    void Rename(smatch match){
+
+    }
+    void Print(smatch match,string input_type){
+        if(input_type=="TRAN_print"){}
+        else if(input_type=="DC_print"){}
+    }
+};
+class View{
+private:
+    Circuit circuit;
+    string input_type="";
+    smatch match;
+    string get="";
+    void Error_handling(){
         if(regex_match(get,regex (R"(^\s*add\b.*)"))) {
-            regex pattern[]={regex(R"(^\s*add\s+(R\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                             regex(R"(^\s*add\s+(C\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                             regex(R"(^\s*add\s+(L\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                             regex(R"(^\s*add\s+(D\w+)\s+(\w+)\s+(\w+)\s+([DZ])\s*$)"),
-                             regex(R"(^\s*add\s+GND\s+(\w+)\s*$)"),
-                             regex(R"(^\s*add\s+VoltageSource(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                             regex(R"(^\s*add\s+CurrentSource(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                             regex(R"(^\s*add\s+V(\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
-                             regex(R"(^\s*add\s+E(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),
-                             regex(R"(^\s*add\s+G(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),
-                             regex(R"(^\s*add\s+H(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),
-                             regex(R"(^\s*add\s+F(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)")
+            regex pattern[]={regex(R"(^\s*add\s+([^CLDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+([^RLDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+([^RCDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+([^RCLVI]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s*$)"),
+                             regex(R"(^\s*add\s+(\w+)\s+(\w+)\s*$)"),
+                             regex(R"(^\s*add\s+([^RCLDI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+([^RCLDV]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                             regex(R"(^\s*add\s+([^I]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
+                             regex(R"(^\s*add\s+([^V]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
+                             regex(R"(^\s*add\s+([^G]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//E
+                             regex(R"(^\s*add\s+([^E]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//G
+                             regex(R"(^\s*add\s+([^F]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//H
+                             regex(R"(^\s*add\s+([^H]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)")//F
             };
-            if(regex_search(get,match,pattern[0])){}
-            else if(regex_search(get,match,pattern[1])){}
-            else if(regex_search(get,match,pattern[2])){}
-            else if(regex_search(get,match,pattern[3])){}
-            else if(regex_search(get,match,pattern[4])){}
-            else if(regex_search(get,match,pattern[5])){}
-            else if(regex_search(get,match,pattern[6])){}
-            else if(regex_search(get,match,pattern[7])){}
-            else if(regex_search(get,match,pattern[8])){}
-            else if(regex_search(get,match,pattern[9])){}
-            else if(regex_search(get,match,pattern[10])){}
-            else if(regex_search(get,match,pattern[11])){}
+            if(regex_search(get,match,pattern[0])){
+                if(match[1].str()[0]!='R') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(stod(match[4])<=0) cout << "Error: Resistance cannot be zero or negative" << endl;
+                else {
+                    bool new_element=1;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    if(!new_element) cout << "Error: Resistor " << match[1] << " already exists in the circuit" << endl;
+                    else input_type="add_Resistor";
+                }
+            }
+            else if(regex_search(get,match,pattern[1])){
+                if(match[1].str()[0]!='C') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(stod(match[4])<=0) cout << "Error: Capacitance cannot be zero or negative" << endl;
+                else {
+                    bool new_element=1;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    if(!new_element) cout << "Error: Capacitor " << match[1] << " already exists in the circuit" << endl;
+                    else input_type="add_Capacitor";
+                }
+            }
+            else if(regex_search(get,match,pattern[2])){
+                if(match[1].str()[0]!='L') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(stod(match[4])<=0) cout << "Error: Inductance cannot be zero or negative" << endl;
+                else {
+                    bool new_element=1;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    if(!new_element) cout << "Error: inductor " << match[1] << " already exists in the circuit" << endl;
+                    else input_type="add_Inductor";
+                }
+            }
+            else if(regex_search(get,match,pattern[3])){
+                if(match[4]!="D"&&match[4]!="Z") cout << "Error: Model " << match[4] << " not found in library" << endl;
+                else if(match[1].str()[0]!='D') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    if(!new_element) cout << "Error: diode " << match[1] << " already exists in the circuit" << endl;
+                    else input_type="add_Diode";
+                }
+            }
+            else if(regex_search(get,match,pattern[4])){
+                if(match[1]!="GND") cout << "Error: Element GND not found in library" << endl;
+                else{
+                    bool first_ground=1;
+                    for(int i=0;i<circuit.node.size();i++){
+                        if(circuit.node[i].is_ground){
+                            first_ground=0;
+                            break;
+                        }
+                    }
+                    if(!first_ground) cout << "Error: GND already added" << endl;
+                    else input_type="add_GND";
+                }
+            }
+            else if(regex_search(get,match,pattern[5])){
+                if(match[1].str()[0]!='V') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    if(!new_element) cout << "Error: VoltageSource " << match[1] << " already exists in the circuit" << endl;
+                    else input_type="add_VoltageSource";
+                }
+            }
+            else if(regex_search(get,match,pattern[6])){
+                if(match[1].str()[0]!='I') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    if(!new_element) cout << "Error: CurrentSource " << match[1] << " already exists in the circuit" << endl;
+                    else input_type="add_CurrentSource";
+                }
+            }
+            else if(regex_search(get,match,pattern[7])){
+                if(match[1].str()[0]!='V') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    if(!new_element) cout << "Error: VoltageSource " << match[1] << " already exists in the circuit" << endl;
+                    else input_type="add_VoltageSource_sin";
+                }
+            }
+            else if(regex_search(get,match,pattern[8])){
+                if(match[1].str()[0]!='I') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    if(!new_element) cout << "Error: CurrentSource " << match[1] << " already exists in the circuit" << endl;
+                    else input_type="add_CurrentSource_sin";
+                }
+            }
+            else if(regex_search(get,match,pattern[9])){
+                if(match[1].str()[0]!='E') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1;
+                    int exist_control=0;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    for(int i=0;i<circuit.node.size();i++){
+                        if(circuit.node[i].name==match[4]||circuit.node[i].name==match[5]){
+                            if(exist_control==0)exist_control=1;
+                            else if(exist_control==1){
+                                exist_control=2;
+                                break;
+                            }
+                        }
+                    }
+                    if(!new_element) cout << "Error: VoltageSource " << match[1] << " already exists in the circuit" << endl;
+                    else if(exist_control!=2) cout  << "Error: Dependent source has an undefined control element." << endl;
+                    else input_type="add_VoltageSource->voltage";
+                }
+            }
+            else if(regex_search(get,match,pattern[10])){
+                if(match[1].str()[0]!='G') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1;
+                    int exist_control=0;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    for(int i=0;i<circuit.node.size();i++){
+                        if(circuit.node[i].name==match[4]||circuit.node[i].name==match[5]){
+                            if(exist_control==0)exist_control=1;
+                            else if(exist_control==1){
+                                exist_control=2;
+                                break;
+                            }
+                        }
+                    }
+                    if(!new_element) cout << "Error: CurrentSource " << match[1] << " already exists in the circuit" << endl;
+                    else if(exist_control!=2) cout  << "Error: Dependent source has an undefined control element." << endl;
+                    else input_type="add_CurrentSource->voltage";
+                }
+            }
+            else if(regex_search(get,match,pattern[11])){
+                if(match[1].str()[0]!='H') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1,exist_control=0;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    circuit.containsElementWithName(exist_control,match[4]);
+                    if(!new_element) cout << "Error: VoltageSource " << match[1] << " already exists in the circuit" << endl;
+                    else if(!exist_control) cout  << "Error: Dependent source has an undefined control element." << endl;
+                    else input_type="add_VoltageSource->current";
+                }
+            }
+            else if(regex_search(get,match,pattern[12])){
+                if(match[1].str()[0]!='F') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else {
+                    bool new_element=1,exist_control=0;
+                    circuit.containsElementWithName(new_element,match[1]);
+                    circuit.containsElementWithName(exist_control,match[4]);
+                    if(!new_element) cout << "Error: VoltageSource " << match[1] << " already exists in the circuit" << endl;
+                    else if(!exist_control) cout  << "Error: Dependent source has an undefined control element." << endl;
+                    else input_type="add_CurrentSource->current";
+                }
+            }
             else cout << "Error: Syntax error" << endl;
         }
         else if(regex_match(get,regex (R"(\s*delete\b.*)"))){
-            regex pattern[]={regex(R"(^\s*delete\s+(R\w+)\s*$)"),
-                             regex(R"(^\s*delete\s+(C\w+)\s*$)"),
-                             regex(R"(^\s*delete\s+(L\w+)\s*$)"),
-                             regex(R"(^\s*delete\s+(D\w+)\s*$)"),
-                             regex(R"(^\s*delete\s+GND\s+(\w+)\s*$)"),
-                             regex(R"(^\s*delete\s+VoltageSource(\w+)\s*$)"),
-                             regex(R"(^\s*delete\s+CurrentSource(\w+)\s*$)")};
-            if(regex_search(get,match,pattern[0])){}
-            else if(regex_search(get,match,pattern[1])){}
-            else if(regex_search(get,match,pattern[2])){}
-            else if(regex_search(get,match,pattern[3])){}
-            else if(regex_search(get,match,pattern[4])){}
-            else if(regex_search(get,match,pattern[5])){}
-            else if(regex_search(get,match,pattern[6])){}
+            regex pattern[]={regex(R"(^\s*delete\s+([RCLDVIEGHF]\w+)\s*$)"),
+                             regex(R"(^\s*delete\s+GND\s+(\w+)\s*$)")};
+            if(regex_search(get,match,pattern[0])){
+                bool exist_element=0;
+                circuit.containsElementWithName(exist_element,match[1]);
+                if(!exist_element){
+                    if(match[1].str()[0]=='R')cout << "Error: Cannot delete resistor; component not found" << endl;
+                    else if(match[1].str()[0]=='C')cout << "Error: Cannot delete capacitor; component not found" << endl;
+                    else if(match[1].str()[0]=='L')cout << "Error: Cannot delete inductor; component not found" << endl;
+                    else if(match[1].str()[0]=='D')cout << "Error: Cannot delete diode; component not found" << endl;
+                    else if(match[1].str()[0]=='V'||match[1].str()[0]=='E'||match[1].str()[0]=='H')cout << "Error: Cannot delete VoltageSource; component not found" << endl;
+                    else if(match[1].str()[0]=='I'||match[1].str()[0]=='G'||match[1].str()[0]=='F')cout << "Error: Cannot delete CurrentSource; component not found" << endl;
+                }
+                else input_type="delete_Element";
+            }
+            else if(regex_search(get,match,pattern[1])){
+                bool exist_element=0;
+                int index=-1;
+                for(int i=0;i<circuit.node.size();i++){
+                    if(circuit.node[i].name==match[1]){
+                        exist_element=1;
+                        index=i;
+                        break;
+                    }
+                }
+                if(!exist_element) cout << "ERROR: Node " << match[1] << " does not exist in the circuit" << endl;
+                else if(!circuit.node[index].is_ground)cout << "Error: Cannot delete GND; node " << match[1] << " is not GND" << endl;
+                else input_type="delete_GND";
+            }
             else cout << "Error: Syntax error" << endl;
         }
         else if(regex_match(get,regex (R"(\s*nodes\s*)"))){
             input_type="nodes";
         }
         else if(regex_match(get,regex (R"(\s*list\b.*)"))){
-            regex pattern[]={regex(R"(^\s*list\s*$)"),regex(R"(^\s*list\s*\[\s*(R|C|L|D|VoltageSource|CurrentSource)\s*\]\s*$)")};
-            if(regex_search(get,match,pattern[0])){}
-            else if(regex_search(get,match,pattern[1])){}
+            regex pattern[]={regex(R"(^\s*list\s*$)"),regex(R"(^\s*list\s*\[\s*(R|C|L|D|V|I|E|G|H|F)\s*\]\s*$)")};
+            if(regex_search(get,match,pattern[0])){
+                if(circuit.element.size()==0) cout << "No elements have been added" << endl;
+                else input_type="total_list";
+            }
+            else if(regex_search(get,match,pattern[1])){
+                if(circuit.element.size()==0) cout << "No elements have been added" << endl;
+                else input_type="spacial_list";
+            }
             else cout << "Error: Syntax error" << endl;
         }
         else if(regex_match(get,regex (R"(\s*rename\b.*)"))){
-            if(regex_search(get,match,regex (R"(^\s*rename\s+node\s+(\w+)\s+(\w+)\s*$)"))){}
-            else cout <<"Error: Syntax error" << endl;
+            if(regex_search(get,match,regex (R"(^\s*rename\s+node\s+(\w+)\s+(\w+)\s*$)"))){
+                bool exist_node=0,new_node=1;
+                for(int i=0;i<circuit.node.size();i++){
+                    if(circuit.node[i].name==match[1])exist_node=1;
+                    if(circuit.node[i].name==match[2])new_node=0;
+                }
+                if(!exist_node) cout << "ERROR: Node " << match[1] << " does not exist in the circuit" << endl;
+                else if(!new_node) cout << "ERROR: Node name " << match[2] << " already exists" << endl;
+                else input_type="rename_node";
+            }
+            else cout << "ERROR: Invalid syntax - correct format:" << endl << "rename node <old_name> <new_name>" << endl;
         }
         else if(regex_match(get,regex (R"(\s*print\b.*)"))){
             regex pattern[]={regex(R"(^\s*print\s+TRAN$)"),
@@ -276,76 +476,57 @@ public:
         }
         else cout << "Error: Syntax error" << endl;
     }
-    void Add(string get){
-        if(input_type=="add_Resistor"){}
-        else if(input_type=="add_Capacitor"){}
-        else if(input_type=="add_Inductor"){}
-        else if(input_type=="add_Diode"){}
-        else if(input_type=="add_GND"){}
-        else if(input_type=="add_VoltageSource"){}
-        else if(input_type=="add_CurrentSource"){}
-        else if(input_type=="add_VoltageSource_sin"){}
-        else if(input_type=="add_VoltageSource->voltage"){}
-        else if(input_type=="add_VoltageSource->current"){}
-        else if(input_type=="add_CurrentSource->voltage"){}
-        else if(input_type=="add_CurrentSource->current"){}
+    void handle_input(string get){
+        input_type="";
+        Error_handling();
+        if(input_type.find("add")==0){
+            circuit.Add(match,input_type);
+        }
+        else if(input_type.find("delete")==0){
+            circuit.Delete(match,input_type);
+        }
+        else if(input_type=="nodes"){
+            cout << "Available nodes:" << endl;
+            for(int i=0;i<circuit.node.size();i++){
+                cout <<  circuit.node[i].name << endl;
+                if(i!=circuit.node.size()-1) cout << " , ";
+                else cout << endl;
+            }
+        }
+        else if(input_type.find("list")!=-1){
+            if(input_type=="total_list"){
+                cout << "Available elements:" << endl;
+                for(int i=0;i<circuit.element.size();i++){
+                    string type=circuit.element[i]->getType();
+                    //RCLDVIEGHF
+                    if(type=="R"||type=="C"||type=="L"||type=="V"||type=="I"){
+                        cout << "Element name : " << circuit.element[i]->getName();
+                        cout << " _ Nodes : " << circuit.element[i]->node1.name << ", " << circuit.element[i]->node2.name;
+                        cout << " _ Value : " << circuit.element[i]->getValue() << endl;
+                    }
+                }
+            }
+            else if(input_type=="spacial_list"){}
+        }
+        else if(input_type=="rename_node"){
+            circuit.Rename(match);
+            smatch match;
+            regex_search(get,match,regex (R"(^\s*rename\s+node\s+(\w+)\s+(\w+)\s*$)"));
+            cout << "SUCCESS: Node renamed from " << match[1] << " to " << match[2] << endl;
+        }
+        else if(input_type.find("print")==0){
+            //circuit.Print(get);
+        }
     }
-    void Delete(string get){
-        if(input_type=="delete_Resistor"){}
-        else if(input_type=="delete_Capacitor"){}
-        else if(input_type=="delete_Inductor"){}
-        else if(input_type=="delete_Diode"){}
-        else if(input_type=="delete_GND"){}
-        else if(input_type=="delete_VoltageSource"){}
-        else if(input_type=="delete_CurrentSource"){}
-    }
-    void Nodes(){
-        if(input_type=="nodes"){}
-    }
-    void List(string get){
-        if(input_type=="total_list"){}
-        else if(input_type=="spacial_list"){}
-    }
-    void Rename(string get){
-        if(input_type=="rename"){}
-    }
-    void Print(){
-        if(input_type=="TRAN_print"){}
-        else if(input_type=="DC_print"){}
-    }
-};
-
-class View{
-private:
-    Circuit circuit;
 public:
     void Run(){
-        string get="";
         while (true){
             getline(cin,get);
             if(get=="Exit"){
                 cout << "Good luck!" << endl;
                 break;
             }
-            circuit.Erorr_handling(get);
-            if(circuit.input_type.find("add")==0){
-                circuit.Add(get);
-            }
-            else if(circuit.input_type.find("delete")==0){
-                circuit.Delete(get);
-            }
-            else if(circuit.input_type=="nodes"){
-                circuit.Nodes();
-            }
-            else if(circuit.input_type.find("list")==0){
-                circuit.List(get);
-            }
-            else if(circuit.input_type.find("rename")==0){
-                circuit.Rename(get);
-            }
-            else if(circuit.input_type.find("print")==0){
-                circuit.Print();
-            }
+            handle_input(get);
         }
     }
 };
