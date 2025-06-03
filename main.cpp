@@ -505,6 +505,7 @@ private:
                         cout << " _ Value : " << circuit.element[i]->getValue() << endl;
                     }
                 }
+
             }
             else if(input_type=="spacial_list"){}
         }
