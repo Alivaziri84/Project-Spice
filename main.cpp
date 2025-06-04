@@ -149,6 +149,11 @@ public:
     void Add(vector<vector<double>> & left,vector<double> right) override{
     }
 };
+class Diode : public Element{
+public:
+    Diode(string t,string n, double v) : Element(t,n,v){}
+    void Add(vector<vector<double>> & left,vector<double> right) override{}
+};
 class VoltageSource : public Element{
 public:
     VoltageSource(string t,string n, double v) : Element(t,n,v){}
@@ -159,29 +164,80 @@ public:
     CurrentSource(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
-class Diode : public Element{
+class Vsin : public VoltageSource{
+private:
+    double Voffset,Vamplitude,Frequency;
 public:
-    Diode(string t,string n, double v) : Element(t,n,v){}
-    void Add(vector<vector<double>> & left,vector<double> right) override{}
+    Vsin(string t,string n,double vof , double vamp, double freq): VoltageSource(t,n,-1), Voffset(vof),Vamplitude(vamp),Frequency(freq){}
+    double get_voltage(double time){
+        return Voffset+Vamplitude*sin(2.0*3.1415926536*Frequency*time);
+    }
+    void View_profile(){
+        cout << "Element name : " << getName();
+        cout << " _ Nodes : " << node1.name << ", " << node2.name;
+        cout << " Type : " << "SIN(" << Voffset << ", " << Vamplitude << ", " << Frequency << ")" << endl;
+    }
+};
+class V_v : public VoltageSource{
+public:
+    Node  cntr_node1,cntr_node2;
+    V_v(string t,string n, double v,Node cn1,Node cn2): VoltageSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
+};
+class V_i : public VoltageSource{
+public:
+    string cntr_element;
+    int cntr_index;
+    V_i(string t,string n, double v,string ce): VoltageSource(t,n,v),cntr_element(ce){}
+};
+class Isin : public CurrentSource{
+private:
+    double Ioffset,Iamplitude,Frequency;
+public:
+    Isin(string t,string n,double iof , double iamp, double freq): CurrentSource(t,n,-1), Ioffset(iof),Iamplitude(iamp),Frequency(freq){}
+    double get_current(double time){
+        return Ioffset+Iamplitude*sin(2.0*3.1415926536*Frequency*time);
+    }
+    void View_profile(){
+        cout << "Element name : " << getName();
+        cout << " _ Nodes : " << node1.name << ", " << node2.name;
+        cout << " Type : " << "SIN(" << Ioffset << ", " << Iamplitude << ", " << Frequency << ")" << endl;
+    }
+};
+class I_v : public CurrentSource{
+public:
+    Node cntr_node1,cntr_node2;
+    I_v(string t,string n, double v,Node cn1,Node cn2): CurrentSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
+};
+class I_i : public CurrentSource{
+public:
+    string cntr_element;
+    int cntr_index;
+    I_i(string t,string n, double v,string ce): CurrentSource(t,n,v),cntr_element(ce){}
 };
 class Circuit{
 private:
     Matrix_solve matrixSolve;
-    /*
     bool isCircuitComplete(bool first,int index){
         static vector<bool> v;
+        static vector<vector<int>> NeighbourNodes={};
         if(first){
-            for(int i=0;i<node.size();i++){
-                if(node[i].NeighbourNodes.size()==1)return false;
-            }
+            NeighbourNodes.clear();
             v.clear();
-            for(int i=0;i<node.size();i++){
+            for(int i=0;i<node.size();i++) {
+                NeighbourNodes.push_back({});
                 v.push_back(false);
+            }
+            for(int i=0;i<element.size();i++){
+                NeighbourNodes[element[i]->node1.index].push_back(element[i]->node2.index);
+                NeighbourNodes[element[i]->node2.index].push_back(element[i]->node1.index);
+            }
+            for(int i=0;i<NeighbourNodes.size();i++){
+                if(NeighbourNodes[i].size()<=1)return false;
             }
         }
         v[index]=true;
-        for(int i=0;i<node[index].NeighbourNodes.size();i++){
-            int n=node[index].NeighbourNodes[i];
+        for(int i=0;i<NeighbourNodes[index].size();i++){
+            int n=NeighbourNodes[index][i];
             if (!v[n]) isCircuitComplete(false,n);
         }
         if(first){
@@ -192,7 +248,6 @@ private:
         }
         return false;
     }
-     */
 public:
     void containsElementWithName(bool &b, string s){
         for(int i=0;i<element.size();i++){
@@ -493,21 +548,61 @@ private:
                 else cout << endl;
             }
         }
-        else if(input_type.find("list")!=-1){
-            if(input_type=="total_list"){
-                cout << "Available elements:" << endl;
-                for(int i=0;i<circuit.element.size();i++){
-                    string type=circuit.element[i]->getType();
-                    //RCLDVIEGHF
+        else if(input_type=="total_list"||input_type=="spacial_list"){
+            cout << "Available elements:" << endl;
+            for(int i=0;i<circuit.element.size();i++){
+                string requested_type,type;
+                type=circuit.element[i]->getType();
+                if(input_type=="total_list") requested_type=circuit.element[i]->getType();
+                else requested_type=match[1];
+                //RCLDVIEGHF
+                if(requested_type==type){
                     if(type=="R"||type=="C"||type=="L"||type=="V"||type=="I"){
                         cout << "Element name : " << circuit.element[i]->getName();
                         cout << " _ Nodes : " << circuit.element[i]->node1.name << ", " << circuit.element[i]->node2.name;
                         cout << " _ Value : " << circuit.element[i]->getValue() << endl;
                     }
+                    else if(type=="D"){
+                        cout << "Element name : " << circuit.element[i]->getName();
+                        cout << " _ Nodes : " << circuit.element[i]->node1.name << ", " << circuit.element[i]->node2.name;
+                        cout << " _ Type : ";
+                        if(circuit.element[i]->getValue()==0) cout << "D" << endl;
+                        else cout << "Z" << endl;
+                    }
+                    else if(type=="E"||type=="G"){
+                        if (V_v* p = dynamic_cast<V_v*>(circuit.element[i].get())){
+                            cout << "Element name : " << p->getName();
+                            cout << " _ Nodes : " << p->node1.name << ", " << p->node2.name;
+                            cout << " _ ControlNodes : " << p->cntr_node1.name << ", " << p->cntr_node2.name;
+                            cout << " _ Gain : " << p->getValue() << endl;
+                        }
+                        if (I_v* p = dynamic_cast<I_v*>(circuit.element[i].get())){
+                            cout << "Element name : " << p->getName();
+                            cout << " _ Nodes : " << p->node1.name << ", " << p->node2.name;
+                            cout << " _ ControlNodes : " << p->cntr_node1.name << ", " << p->cntr_node2.name;
+                            cout << " _ Gain : " << p->getValue() << endl;
+                        }
+                    }
+                    else if(type=="H"||type=="F"){
+                        if (V_i* p = dynamic_cast<V_i*>(circuit.element[i].get())){
+                            cout << "Element name : " << p->getName();
+                            cout << " _ Nodes : " << p->node1.name << ", " << p->node2.name;
+                            cout << " _ ControlElement : " << p->cntr_element ;
+                            cout << " _ Gain : " << p->getValue() << endl;
+                        }
+                        if (I_i* p = dynamic_cast<I_i*>(circuit.element[i].get())){
+                            cout << "Element name : " << p->getName();
+                            cout << " _ Nodes : " << p->node1.name << ", " << p->node2.name;
+                            cout << " _ ControlElement : " << p->cntr_element ;
+                            cout << " _ Gain : " << p->getValue() << endl;
+                        }
+                    }
                 }
-
+                else if((requested_type=="V"&&type=="Vsin")||(requested_type=="I"&&type=="Isin")){
+                    if (Vsin* p = dynamic_cast<Vsin*>(circuit.element[i].get())) p->View_profile();
+                    if (Isin* p = dynamic_cast<Isin*>(circuit.element[i].get())) p->View_profile();
+                }
             }
-            else if(input_type=="spacial_list"){}
         }
         else if(input_type=="rename_node"){
             circuit.Rename(match);
