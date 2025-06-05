@@ -2,6 +2,7 @@
 #include <regex>
 #include <vector>
 #include <cmath>
+#include <memory>
 using namespace std;
 class Matrix_solve{
 public:
@@ -215,12 +216,20 @@ public:
     I_i(string t,string n, double v,string ce): CurrentSource(t,n,v),cntr_element(ce){}
 };
 class Circuit{
-private:
     Matrix_solve matrixSolve;
-    bool isCircuitComplete(bool first,int index){
+public:
+    void containsElementWithName(bool &b, string s){
+        for(int i=0;i<element.size();i++){
+            if(element[i]->getName()==s){
+                b=!b;
+                break;
+            }
+        }
+    }
+    bool isCircuitComplete(int index){
         static vector<bool> v;
         static vector<vector<int>> NeighbourNodes={};
-        if(first){
+        if(index==0){
             NeighbourNodes.clear();
             v.clear();
             for(int i=0;i<node.size();i++) {
@@ -238,24 +247,15 @@ private:
         v[index]=true;
         for(int i=0;i<NeighbourNodes[index].size();i++){
             int n=NeighbourNodes[index][i];
-            if (!v[n]) isCircuitComplete(false,n);
+            if (!v[n]) isCircuitComplete(n);
         }
-        if(first){
+        if(index==0){
             for(int i=0;i<v.size();i++){
                 if(!v[i]) return false;
             }
             return true;
         }
         return false;
-    }
-public:
-    void containsElementWithName(bool &b, string s){
-        for(int i=0;i<element.size();i++){
-            if(element[i]->getName()==s){
-                b=!b;
-                break;
-            }
-        }
     }
     vector<unique_ptr<Element>> element={};
     vector<Node> node={};
@@ -279,11 +279,16 @@ public:
         else if(input_type=="delete_GND"){}
     }
     void Rename(smatch match){
-
+        for(int i=0;i<node.size();i++){
+            if(node[i].name==match[1]){
+                node[i].name=match[2];
+                break;
+            }
+        }
     }
     void Print(smatch match,string input_type){
-        if(input_type=="TRAN_print"){}
-        else if(input_type=="DC_print"){}
+        if(input_type=="print_TRAN"){}
+        else if(input_type=="print_DC"){}
     }
 };
 class View{
@@ -523,11 +528,135 @@ private:
             else cout << "ERROR: Invalid syntax - correct format:" << endl << "rename node <old_name> <new_name>" << endl;
         }
         else if(regex_match(get,regex (R"(\s*print\b.*)"))){
-            regex pattern[]={regex(R"(^\s*print\s+TRAN$)"),
-                             regex(R"()")};
-            if(regex_search(get,match,pattern[0])){}
-            else if(regex_search(get,match,pattern[1])){}
+            regex pattern[]={regex(R"(^\s*print\s+TRAN\s+(?:([-+]?\d+(?:\.\d+)?)\s*s?\s+)?([-+]?\d+(?:\.\d+)?)\s*s?\s+([-+]?\d+(?:\.\d+)?)\s*s?\s+((?:[IV]\(\w+\)\s+)*(?:[IV]\(\w+\)))\s*$)"),
+                             regex(R"(^\s*print\s+DC\s+(\w+)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+((?:[IV]\(\w+\)\s+)*(?:[IV]\(\w+\)))\s*$)")};
+            int no_error=0;
+            if(regex_search(get,match,pattern[0])){
+                string s=match[1];
+                if(match[1].length()==0)s+="0";
+                if(stod(s)<0) cout << "Error: Start time cannot be negative" << endl;
+                if(stod(match[2])<=0) cout << "Error: Stop time cannot be zero or negative." << endl;
+                else if(stod(match[3])<=0) cout << "Error: Step time cannot be zero or negative." << endl;
+                else if(stod(match[3])> stod(match[2])- stod(s)) cout << "Error: Time step is greater than the given range" << endl;
+                else no_error=1;
+            }
+            else if(regex_search(get,match,pattern[1])){
+                bool  exist_element=0;
+                for(int i=0;i<circuit.element.size();i++){
+                    string s =circuit.element[i]->getType();
+                    if((s=="V"||s=="I")&&circuit.element[i]->getName()==match[1]){
+                        exist_element=1;
+                        break;
+                    }
+                }
+                if(!exist_element) cout << " Component " << match[1] << " not found in circuit" << endl;
+                else if(stod(match[4])<=0) cout << "Error: Increment cannot be zero or negative." << endl;
+                else if(stod(match[3])- stod(match[2])< stod(match[4])) cout << "Error: Increment is greater than the given range" << endl;
+                else no_error=2;
+            }
             else cout << "Error: Syntax error" << endl;
+            if(no_error!=0){
+                string input;
+                if(no_error==1)input=match[4];
+                else input=match[5];
+                regex re(R"(([IV])\((\w+)\))");
+                bool exist=0;
+                for (sregex_iterator it(input.begin(),input.end(),re);it!=sregex_iterator();it++){
+                    string it_str=it->str();
+                    smatch sm;
+                    regex_search(it_str,sm,re);
+                    exist=0;
+                    if(sm[1]=="I"){
+                        circuit.containsElementWithName(exist,sm[2]);
+                        if(!exist){
+                            cout << "Component " << sm[2] << " not found in circuit" << endl;
+                            break;
+                        }
+                    }
+                    else {
+                        for(int i=0;i<circuit.node.size();i++){
+                            if(circuit.node[i].name==sm[2]){
+                                exist=1;
+                                break;
+                            }
+                        }
+                        if(!exist){
+                            cout << " Node " << sm[2] << " not found in circuit" << endl;
+                            break;
+                        }
+                    }
+                }
+                if(exist){
+                    bool exist_ground=0;
+                    for(int i=0;i<circuit.node.size();i++){
+                        if(circuit.node[i].is_ground){
+                            exist_ground=1;
+                            break;
+                        }
+                    }
+                    if(!exist_ground) cout << "Error: No ground node detected in the circuit" << endl;
+                    else if(!circuit.isCircuitComplete(0)) cout << "Error: The circuit is discontinuous or has multiple sections." << endl;
+                    else {
+                        bool exist_control=0;
+                        for(int i=0;i<circuit.element.size();i++){
+                            if(V_v* p = dynamic_cast<V_v*>(circuit.element[i].get())){
+                                exist_control=0;
+                                bool helper_bool=0;
+                                for(int i=0;i<circuit.node.size();i++){
+                                    if(circuit.node[i].name==p->node1.name||circuit.node[i].name==p->node2.name){
+                                        if(!helper_bool)helper_bool=1;
+                                        else {
+                                            exist_control=1;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if(!exist_control){
+                                    cout << "Error: Dependent source " << circuit.element[i]->getName() << " has an undefined control element" << endl;
+                                    break;
+                                }
+                            }
+                            else if(I_v* p = dynamic_cast<I_v*>(circuit.element[i].get())){
+                                exist_control=0;
+                                bool helper_bool=0;
+                                for(int i=0;i<circuit.node.size();i++){
+                                    if(circuit.node[i].name==p->node1.name||circuit.node[i].name==p->node2.name){
+                                        if(!helper_bool)helper_bool=1;
+                                        else {
+                                            exist_control=1;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if(!exist_control){
+                                    cout << "Error: Dependent source " << circuit.element[i]->getName() << " has an undefined control element" << endl;
+                                    break;
+                                }
+                            }
+                            else if(V_i* p = dynamic_cast<V_i*>(circuit.element[i].get())){
+                                exist_control=0;
+                                circuit.containsElementWithName(exist_control,p->cntr_element);
+                                if(!exist_control){
+                                    cout << "Error: Dependent source " << circuit.element[i]->getName() << " has an undefined control element" << endl;
+                                    break;
+                                }
+                            }
+                            else if(I_i* p = dynamic_cast<I_i*>(circuit.element[i].get())){
+                                exist_control=0;
+                                circuit.containsElementWithName(exist_control,p->cntr_element);
+                                if(!exist_control){
+                                    cout << "Error: Dependent source " << circuit.element[i]->getName() << " has an undefined control element" << endl;
+                                    break;
+                                }
+                            }
+                        }
+                        if(exist_control){
+                            if(no_error==1)input_type="print_TRAN";
+                            else input_type="print_DC";
+                        }
+                    }
+                }
+            }
         }
         else cout << "Error: Syntax error" << endl;
     }
@@ -555,7 +684,6 @@ private:
                 type=circuit.element[i]->getType();
                 if(input_type=="total_list") requested_type=circuit.element[i]->getType();
                 else requested_type=match[1];
-                //RCLDVIEGHF
                 if(requested_type==type){
                     if(type=="R"||type=="C"||type=="L"||type=="V"||type=="I"){
                         cout << "Element name : " << circuit.element[i]->getName();
