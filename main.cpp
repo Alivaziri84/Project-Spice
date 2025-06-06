@@ -3,6 +3,7 @@
 #include <vector>
 #include <cmath>
 #include <memory>
+#include <iomanip>
 using namespace std;
 class Matrix_solve{
 public:
@@ -217,6 +218,7 @@ public:
 };
 class Circuit{
     Matrix_solve matrixSolve;
+    double tstep,tspent;
 public:
     void containsElementWithName(bool &b, string s){
         for(int i=0;i<element.size();i++){
@@ -286,10 +288,8 @@ public:
             }
         }
     }
-    void Print(smatch match,string input_type){
-        if(input_type=="print_TRAN"){}
-        else if(input_type=="print_DC"){}
-    }
+    vector<double> Print_TRAN(smatch match,double t_spent){}
+    vector<double> Print_DC(smatch match,double t_spent){}
 };
 class View{
 private:
@@ -738,8 +738,114 @@ private:
             regex_search(get,match,regex (R"(^\s*rename\s+node\s+(\w+)\s+(\w+)\s*$)"));
             cout << "SUCCESS: Node renamed from " << match[1] << " to " << match[2] << endl;
         }
-        else if(input_type.find("print")==0){
-            //circuit.Print(get);
+        else if(input_type=="print_TRAN"){
+            vector<vector<string>> wanted_elements={};
+            double tstep,tstart,tstop,tspent;
+            vector<double> answer;
+            string input;
+            if(input_type=="print_TRAN")input=match[4];
+            else input=match[5];
+            regex re(R"(([IV])\((\w+)\))");
+            for (sregex_iterator it(input.begin(),input.end(),re);it!=sregex_iterator();it++){
+                string it_str=it->str();
+                smatch sm;
+                regex_search(it_str,sm,re);
+                wanted_elements.push_back({sm[1],sm[2]});
+                if(sm[1]=="I"){
+                    for(int i=0;i<circuit.element.size();i++){
+                        if(circuit.element[i]->getName()==sm[2]){
+                            wanted_elements[wanted_elements.size()-1].push_back(to_string(i));
+                        }
+                    }
+                }
+                else {
+                    for(int i=0;i<circuit.node.size();i++){
+                        if(circuit.node[i].name==sm[2]){
+                            wanted_elements[wanted_elements.size()-1].push_back(to_string(i));
+                        }
+                    }
+                }
+            }
+            tstep= stod(match[3]);
+            tstop= stod(match[2]);
+            string s_tstart=match[1];
+            if(s_tstart.length()==0)s_tstart.push_back('0');
+            tstart= stod(s_tstart);
+            int number=(tstop-tstart)/tstep;
+            tspent=tstart;
+            for(int i=0;i<=number;i++){
+                answer=circuit.Print_TRAN(match,tspent);
+                cout << tspent <<  " seconds have passed since the start of the circuit :" << endl;
+                for(int j=0;j<wanted_elements.size();j++){
+                    cout << wanted_elements[j][1] << " : " << wanted_elements[j][0] << " = ";
+                    if(wanted_elements[j][0]=="V"){
+                        cout << answer[stoi(wanted_elements[j][2])]<< " volt." << endl;
+                    }
+                    else {
+                        int index= stoi(wanted_elements[j][2]);
+                        string type=circuit.element[index]->getType();
+                        if(type=="R"){
+                            double v1=answer[circuit.element[index]->node1.index];
+                            double v2=answer[circuit.element[index]->node2.index];
+                            cout << fixed << setprecision(4) << (v1-v2)/circuit.element[index]->getValue();
+                        }
+                        else if(type=="C"){}
+                        else if(type=="L"){}
+                        else if(type=="D"){}
+                        else if(type=="V"){}
+                        else if(type=="I"){
+                            cout << fixed << setprecision(4) << circuit.element[index]->getValue();
+                        }
+                        else if(type=="Vsin"){}
+                        else if(type=="Isin"){
+                            Isin* p = dynamic_cast<Isin*>(circuit.element[j].get());
+                            cout << fixed << setprecision(4) << p->get_current(tspent);
+                        }
+                        else if(type=="E"){
+                            V_v* p = dynamic_cast<V_v*>(circuit.element[i].get());
+                        }
+                        else if(type=="G"){
+                            I_v* p = dynamic_cast<I_v*>(circuit.element[i].get());
+                        }
+                        else if(type=="H"){
+                            V_i* p = dynamic_cast<V_i*>(circuit.element[i].get());
+
+                        }
+                        else if(type=="F"){
+                            I_i* p = dynamic_cast<I_i*>(circuit.element[i].get());
+                        }
+                        cout << " amp." << endl;
+                    }
+                }
+            }
+        }
+        else if(input_type=="print_DC"){
+            vector<vector<string>> wanted_elements={};
+            string input;
+            if(input_type=="print_TRAN")input=match[4];
+            else input=match[5];
+            regex re(R"(([IV])\((\w+)\))");
+            for (sregex_iterator it(input.begin(),input.end(),re);it!=sregex_iterator();it++){
+                string it_str=it->str();
+                smatch sm;
+                regex_search(it_str,sm,re);
+                wanted_elements.push_back({sm[1],sm[2]});
+                if(sm[1]=="I"){
+                    for(int i=0;i<circuit.element.size();i++){
+                        if(circuit.element[i]->getName()==sm[2]){
+                            wanted_elements[wanted_elements.size()-1].push_back(to_string(i));
+                        }
+                    }
+                }
+                else {
+                    for(int i=0;i<circuit.node.size();i++){
+                        if(circuit.node[i].name==sm[2]){
+                            wanted_elements[wanted_elements.size()-1].push_back(to_string(i));
+                        }
+                    }
+                }
+            }
+
         }
     }
 public:
