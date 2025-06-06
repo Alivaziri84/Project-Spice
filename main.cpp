@@ -8,8 +8,10 @@ using namespace std;
 class Matrix_solve{
 public:
     vector<vector<double>> left_matrix={};
+    vector<vector<double>> primary_left_matrix={};
     vector<double> answer={};
-    vector<double> right_matrix={};
+    vector<vector<double>> right_matrix={};
+    vector<vector<double>> primary_right_matrix={};
     vector<vector<double>> l_left={};
     vector<vector<double>> u_left={};
     void LU_setter(){
@@ -142,22 +144,26 @@ public:
 };
 class Capacitor : public Element{
 public:
+    double previous_current;
     Capacitor(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
 class Inductor : public Element{
 public:
+    double previous_current;
     Inductor(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{
     }
 };
 class Diode : public Element{
 public:
+    int current_index;
     Diode(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
 class VoltageSource : public Element{
 public:
+    int current_index;
     VoltageSource(string t,string n, double v) : Element(t,n,v){}
     void Add(vector<vector<double>> & left,vector<double> right) override{}
 };
@@ -243,7 +249,7 @@ public:
                 NeighbourNodes[element[i]->node2.index].push_back(element[i]->node1.index);
             }
             for(int i=0;i<NeighbourNodes.size();i++){
-                if(NeighbourNodes[i].size()<=1)return false;
+                if(NeighbourNodes[i].size()==0)return false;
             }
         }
         v[index]=true;
@@ -258,6 +264,98 @@ public:
             return true;
         }
         return false;
+    }
+    double element_current_shower(int index,vector<double> answer,double tspent,double tstep,string analysis_type){
+        string type=element[index]->getType();
+        if(type=="R"){
+            double v1=answer[element[index]->node1.index];
+            double v2=answer[element[index]->node2.index];
+            return (v1-v2)/element[index]->getValue();
+        }
+        else if(type=="C"){
+            if(analysis_type=="DC")return 0.0;
+            else {
+                Capacitor* p=dynamic_cast<Capacitor*>(element[index].get());
+                if(tspent!=0) return p->previous_current;
+                else {
+                    int node_index=element[index]->node2.index;
+                    double current=0.0;
+                    for(int i=0;i<element.size();i++){
+                        if(i!=index){
+                            if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
+                                double I= element_current_shower(i,answer,0,0,"TRAN");
+                                if(element[i]->node1.index==node_index) current+=I;
+                                else current-=I;
+                            }
+                        }
+                    }
+                    return current;
+                }
+            }
+        }
+        else if(type=="L"){
+            if(analysis_type=="DC"){
+                int node_index=element[index]->node2.index;
+                double current=0.0;
+                for(int i=0;i<element.size();i++){
+                    if(i!=index){
+                        if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
+                            double I= element_current_shower(i,answer,0,0,"DC");
+                            if(element[i]->node1.index==node_index) current+=I;
+                            else current-=I;
+                        }
+                    }
+                }
+                return current;
+            }
+            else {
+                Inductor* p=dynamic_cast<Inductor*>(element[index].get());
+                if(tspent!=0)return p->previous_current;
+                else return 0.0;
+            }
+        }
+        else if(type=="D"){
+            Diode* p=dynamic_cast<Diode*>(element[index].get());
+            return answer[p->current_index];
+        }
+        else if(type=="V"){
+            VoltageSource* p=dynamic_cast<VoltageSource*>(element[index].get());
+            return answer[p->current_index];
+        }
+        else if(type=="I"){
+            return element[index]->getValue();
+        }
+        else if(type=="Vsin"){
+            Vsin* p=dynamic_cast<Vsin*>(element[index].get());
+            return answer[p->current_index];
+        }
+        else if(type=="Isin"){
+            Isin* p = dynamic_cast<Isin*>(element[index].get());
+            return p->get_current(tspent);
+        }
+        else if(type=="E"){
+            V_v* p = dynamic_cast<V_v*>(element[index].get());
+            return answer[p->current_index];
+        }
+        else if(type=="G"){
+            I_v* p = dynamic_cast<I_v*>(element[index].get());
+            return p->getValue()*(answer[p->cntr_node1.index]-answer[p->cntr_node2.index]);
+        }
+        else if(type=="H"){
+            V_i* p = dynamic_cast<V_i*>(element[index].get());
+            return answer[p->current_index];
+        }
+        else if(type=="F"){
+            I_i* p = dynamic_cast<I_i*>(element[index].get());
+            int cntr_index=0;
+            for(int i=0;i<element.size();i++){
+                if(p->cntr_element==element[i]->getName()){
+                    cntr_index=i;
+                    break;
+                }
+            }
+            return p->getValue()* element_current_shower(cntr_index,answer,tspent,tstep,analysis_type);
+        }
     }
     vector<unique_ptr<Element>> element={};
     vector<Node> node={};
@@ -288,8 +386,13 @@ public:
             }
         }
     }
-    vector<double> Print_TRAN(smatch match,double t_spent){}
-    vector<double> Print_DC(smatch match,double t_spent){}
+    vector<double> Print_TRAN(smatch match,double t_spent){
+        /*
+         return 2*p->getValue()*(answer[p->node1.index]-answer[p->node2.index]-p->previous_voltage)/tstep-p->previous_current;
+         tstep*(answer[p->node1.index]-answer[p->node2.index]+p->previous_voltage)/(2*p->getValue())+p->previous_current;
+         */
+    }
+    vector<double> Print_DC(smatch match,double final_value,int index){}
 };
 class View{
 private:
@@ -297,6 +400,7 @@ private:
     string input_type="";
     smatch match;
     string get="";
+
     void Error_handling(){
         if(regex_match(get,regex (R"(^\s*add\b.*)"))) {
             regex pattern[]={regex(R"(^\s*add\s+([^CLDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
@@ -665,9 +769,11 @@ private:
         Error_handling();
         if(input_type.find("add")==0){
             circuit.Add(match,input_type);
+            cout << "Element added successfully." << endl;
         }
         else if(input_type.find("delete")==0){
             circuit.Delete(match,input_type);
+            cout << "Element successfully deleted." << endl;
         }
         else if(input_type=="nodes"){
             cout << "Available nodes:" << endl;
@@ -742,9 +848,7 @@ private:
             vector<vector<string>> wanted_elements={};
             double tstep,tstart,tstop,tspent;
             vector<double> answer;
-            string input;
-            if(input_type=="print_TRAN")input=match[4];
-            else input=match[5];
+            string input=match[4];
             regex re(R"(([IV])\((\w+)\))");
             for (sregex_iterator it(input.begin(),input.end(),re);it!=sregex_iterator();it++){
                 string it_str=it->str();
@@ -774,6 +878,7 @@ private:
             int number=(tstop-tstart)/tstep;
             tspent=tstart;
             for(int i=0;i<=number;i++){
+                tspent+=double(i)*tstep;
                 answer=circuit.Print_TRAN(match,tspent);
                 cout << tspent <<  " seconds have passed since the start of the circuit :" << endl;
                 for(int j=0;j<wanted_elements.size();j++){
@@ -783,37 +888,7 @@ private:
                     }
                     else {
                         int index= stoi(wanted_elements[j][2]);
-                        string type=circuit.element[index]->getType();
-                        if(type=="R"){
-                            double v1=answer[circuit.element[index]->node1.index];
-                            double v2=answer[circuit.element[index]->node2.index];
-                            cout << fixed << setprecision(4) << (v1-v2)/circuit.element[index]->getValue();
-                        }
-                        else if(type=="C"){}
-                        else if(type=="L"){}
-                        else if(type=="D"){}
-                        else if(type=="V"){}
-                        else if(type=="I"){
-                            cout << fixed << setprecision(4) << circuit.element[index]->getValue();
-                        }
-                        else if(type=="Vsin"){}
-                        else if(type=="Isin"){
-                            Isin* p = dynamic_cast<Isin*>(circuit.element[j].get());
-                            cout << fixed << setprecision(4) << p->get_current(tspent);
-                        }
-                        else if(type=="E"){
-                            V_v* p = dynamic_cast<V_v*>(circuit.element[i].get());
-                        }
-                        else if(type=="G"){
-                            I_v* p = dynamic_cast<I_v*>(circuit.element[i].get());
-                        }
-                        else if(type=="H"){
-                            V_i* p = dynamic_cast<V_i*>(circuit.element[i].get());
-
-                        }
-                        else if(type=="F"){
-                            I_i* p = dynamic_cast<I_i*>(circuit.element[i].get());
-                        }
+                        cout << fixed << setprecision(4) <<circuit.element_current_shower(index,answer,tspent,tstep,"TRAN");
                         cout << " amp." << endl;
                     }
                 }
@@ -821,9 +896,15 @@ private:
         }
         else if(input_type=="print_DC"){
             vector<vector<string>> wanted_elements={};
-            string input;
-            if(input_type=="print_TRAN")input=match[4];
-            else input=match[5];
+            double StartValue,EndValue,Increment;
+            vector<double> answer;
+            for(int i=0;i<circuit.element.size();i++){
+                if(circuit.element[i]->getName()==match[1]){
+                    if(circuit.element[i]->getType()=="V")wanted_elements.push_back({"V",match[1], to_string(i)});
+                    else wanted_elements.push_back({"I",match[1], to_string(i)});
+                }
+            }
+            string input=match[5];
             regex re(R"(([IV])\((\w+)\))");
             for (sregex_iterator it(input.begin(),input.end(),re);it!=sregex_iterator();it++){
                 string it_str=it->str();
@@ -845,7 +926,27 @@ private:
                     }
                 }
             }
-
+            StartValue= stod(match[2]);
+            EndValue= stod(match[3]);
+            Increment= stod(match[4]);
+            int number=(EndValue-StartValue)/Increment;
+            for(int i=0;i<=number;i++){
+                StartValue+=double(i)*Increment;
+                answer=circuit.Print_DC(match,StartValue, stoi(wanted_elements[0][2]));
+                if(wanted_elements[0][0]=="V") cout << "VoltageSource : "<< wanted_elements[0][1] << " _ Voltage : " << StartValue << " volt. DC :"<< endl;
+                else cout << "CurrentSource : " << wanted_elements[0][1] << " _ current : " << StartValue << " amp. DC :"<< endl;;
+                for(int j=1;j<wanted_elements.size();j++){
+                    cout << wanted_elements[j][1] << " : " << wanted_elements[j][0] << " = ";
+                    if(wanted_elements[j][0]=="V"){
+                        cout << answer[stoi(wanted_elements[j][2])]<< " volt." << endl;
+                    }
+                    else {
+                        int index= stoi(wanted_elements[j][2]);
+                        circuit.element_current_shower(index,answer,0,0,"DC");
+                        cout << " amp." << endl;
+                    }
+                }
+            }
         }
     }
 public:
