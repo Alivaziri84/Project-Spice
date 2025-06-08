@@ -5,106 +5,96 @@
 #include <memory>
 #include <iomanip>
 using namespace std;
+struct Matrices{
+    vector<vector<double>> Left;
+    vector<vector<double>> Right;
+    vector<vector<double>> L_Left;
+    vector<vector<double>> U_Left;
+    vector<double> Answer;
+};
 class Matrix_solve{
 public:
-    vector<vector<double>> left_matrix={};
-    vector<vector<double>> primary_left_matrix={};
-    vector<double> answer={};
-    vector<vector<double>> right_matrix={};
-    vector<vector<double>> primary_right_matrix={};
-    vector<vector<double>> l_left={};
-    vector<vector<double>> u_left={};
-    void LU_setter(){
-        int size=left_matrix.size();
+    Matrices Primary_TRAN;
+    Matrices TRAN;
+    Matrices DC;
+    bool LUsetter(Matrices &M){
+        int size=M.Left.size();
         for(int i=0;i<size;i++){
-            for(int j=i;j<size;j++){
-                if(fabs(left_matrix[i][i])<fabs(left_matrix[j][i]))swap(left_matrix[i],left_matrix[j]);
-            }
-        }
-        l_left={};
-        u_left={};
-        for(int i=0;i<size;i++){
-            l_left.push_back({});
-            u_left.push_back({});
-            for(int j=0;j<size;j++){
-                if(j==i) l_left[i].push_back(1.0);
-                else l_left[i].push_back(0.0);
-                u_left[i].push_back(0.0);
-            }
-        }
-        for(int i=0;i<size;i++){
-            for(int j=i;j<size;j++){
-                double sumu=0.0,suml=0.0;
-                for(int k=0;k<size;k++){
-                    sumu+=l_left[i][k]*u_left[k][j];
-                }
-                u_left[i][j]=left_matrix[i][j]-sumu;
-                if(j!=i){
-                    for(int k=0;k<size;k++){
-                        suml+=l_left[j][k]*u_left[k][i];
-                    }
-                    l_left[j][i]=(left_matrix[j][i]-suml)/u_left[i][i];
+            bool All_are_zero=1;
+            for(int j=0;j<size;j++) {
+                if(M.Left[i][j]!=0){
+                    All_are_zero=0;
+                    break;
                 }
             }
-        }
-    }
-    void Solve(){
-        if(0){
-            vector<vector<double>> v={};
-            for(int i=0;i<left_matrix.size();i++){
-                v.push_back(left_matrix[i]);
-                v[i].push_back(right_matrix[i]);
+            if(All_are_zero) return false;
+            All_are_zero=1;
+            for(int j=0;j<size;j++) {
+                if(M.Left[j][i]!=0){
+                    All_are_zero=0;
+                    break;
+                }
             }
-            int size=v.size();
-            for(int i=0;i<size-1;i++){
-                if(v[i][i]<1e-9){
-                    for(int j=i;j<size;j++){
-                        if(v[j][i]>1e-9){
-                            swap(v[i],v[j]);
-                            break;
+            if(All_are_zero) return false;
+        }
+        M.L_Left.resize(size);
+        M.U_Left.resize(size);
+        for(int i=0;i<size;i++){
+            M.L_Left[i].clear();
+            M.U_Left[i].clear();
+            M.L_Left[i].resize(size,0.0);
+            M.U_Left[i].resize(size,0.0);
+            M.L_Left[i][i]=1.0;
+        }
+        for(int layer=0;layer<size;layer++){
+            bool swap_is_okay= false;
+            for(int swap_index=layer;swap_index<size;swap_index++){
+                double diagonal_value=M.Left[swap_index][layer];
+                for(int i=0;i<layer;i++) {
+                    diagonal_value-=M.L_Left[swap_index][i]*M.U_Left[i][layer];
+                }
+                if(fabs(diagonal_value)>1e-12){
+                    swap_is_okay= true;
+                    swap(M.Left[layer],M.Left[swap_index]);
+                    swap(M.Right[layer],M.Right[swap_index]);
+                    swap(M.L_Left[layer],M.L_Left[swap_index]);
+                    M.L_Left[layer][swap_index]=0.0;
+                    M.L_Left[swap_index][layer]=0.0;
+                    M.L_Left[swap_index][swap_index]=1.0;
+                    M.L_Left[layer][layer]=1.0;
+                    for(int half_layer=layer;half_layer<size;half_layer++){
+                        double value=M.Left[layer][half_layer];
+                        for(int i=0;i<layer;i++) value-=M.L_Left[layer][i]*M.U_Left[i][half_layer];
+                        M.U_Left[layer][half_layer]=value;
+                        if(half_layer!=layer){
+                            value=M.Left[half_layer][layer];
+                            for(int i=0;i<layer;i++) value-=M.L_Left[half_layer][i]*M.U_Left[i][layer];
+                            M.L_Left[half_layer][layer]=value/M.U_Left[layer][layer];
                         }
                     }
-                }
-                for(int j=i+1;j<size;j++){
-                    for(int k=0;k<size+1;k++){
-                        if(k!=i) v[j][k]-=v[i][k]*v[j][i]/v[i][i];
-                    }
-                    v[j][i]=0.0;
+                    break;
                 }
             }
-            for(int i=size-2;i>=0;i--){
-                for(int j=i+1;j<size;j++){
-                    v[i][size]-=v[j][size]*v[i][j]/v[j][j];
-                    v[i][j]=0.0;
-                }
-            }
-            answer={};
-            for(int i=0;i<size;i++) answer.push_back(v[i][size]/v[i][i]);
+            if(!swap_is_okay) return false;
         }
-        else{
-            int size=right_matrix.size();
-            vector<vector<double>> v={};
-            for(int i=0;i<size;i++){
-                v.push_back(l_left[i]);
-                v[i].push_back(right_matrix[i]);
+        return true;
+    }
+    void Solve(Matrices &M){
+        int size = M.Right.size();
+        vector<double> external_answer(size);
+        M.Answer.resize(size);
+        for(int i=0;i<size;i++){
+            external_answer[i]=M.Right[i][0];
+            for(int j=0;j<i;j++){
+                external_answer[i]-=M.L_Left[i][j]*external_answer[j];
             }
-            for(int i=1;i<size;i++){
-                for(int j=0;j<i;j++){
-                    v[i][size]-=v[i][j]*v[j][size];
-                }
+        }
+        for(int i=size-1;i>=0;i--){
+            M.Answer[i]=external_answer[i];
+            for(int j=i+1;j<size;j++){
+                M.Answer[i]-=M.U_Left[i][j]*M.Answer[j];
             }
-            for(int i=0;i<size;i++){
-                for(int j=0;j<size;j++){
-                    v[i][j]=u_left[i][j];
-                }
-            }
-            for(int i=size-2;i>=0;i--){
-                for(int j=i+1;j<size;j++){
-                    v[i][size]-=v[j][size]*v[i][j]/v[j][j];
-                }
-            }
-            answer={};
-            for(int i=0;i<size;i++) answer.push_back(v[i][size]/v[i][i]);
+            M.Answer[i]/=M.U_Left[i][i];
         }
     }
 };
@@ -113,6 +103,7 @@ public:
     string name;
     int index;
     bool is_ground=0;
+    void Add(){}
 };
 class Element{
 protected:
@@ -225,7 +216,12 @@ public:
 class Circuit{
     Matrix_solve matrixSolve;
     double tstep,tspent;
+    int current_index=0;
+    bool matrix_needs_update = 1;
+    bool first_print=1;
 public:
+    vector<unique_ptr<Element>> element={};
+    vector<Node> node={};
     void containsElementWithName(bool &b, string s){
         for(int i=0;i<element.size();i++){
             if(element[i]->getName()==s){
@@ -265,7 +261,7 @@ public:
         }
         return false;
     }
-    double element_current_shower(int index,vector<double> answer,double tspent,double tstep,string analysis_type){
+    double element_current_shower(int index,vector<double> answer,double tspent,double tstep,string analysis_type,int LC_node_analysis){
         string type=element[index]->getType();
         if(type=="R"){
             double v1=answer[element[index]->node1.index];
@@ -273,17 +269,68 @@ public:
             return (v1-v2)/element[index]->getValue();
         }
         else if(type=="C"){
+            if(element[index]->node1.index==element[index]->node2.index)return 0.0;
             if(analysis_type=="DC")return 0.0;
             else {
                 Capacitor* p=dynamic_cast<Capacitor*>(element[index].get());
                 if(tspent!=0) return p->previous_current;
                 else {
+                    if(LC_node_analysis==2){
+                        int node_index=element[index]->node2.index;
+                        double current=0.0;
+                        for(int i=0;i<element.size();i++){
+                            if(i!=index){
+                                if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
+                                    double I;
+                                    if(element[i]->getType()=="C"){
+                                        if(element[i]->node1.index==node_index)I= element_current_shower(i,answer,0,0,"TRAN",2);
+                                        else I= element_current_shower(i,answer,0,0,"TRAN",1);
+                                    }
+                                    else I= element_current_shower(i,answer,0,0,"TRAN",2);
+                                    if(element[i]->node1.index==node_index) current+=I;
+                                    else current-=I;
+                                }
+                            }
+                        }
+                        return current;
+                    }
+                    else {
+                        int node_index=element[index]->node1.index;
+                        double current=0.0;
+                        for(int i=0;i<element.size();i++){
+                            if(i!=index){
+                                if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
+                                    double I;
+                                    if(element[i]->getType()=="C"){
+                                        if(element[i]->node1.index==node_index)I= element_current_shower(i,answer,0,0,"TRAN",2);
+                                        else I= element_current_shower(i,answer,0,0,"TRAN",1);
+                                    }
+                                    else I= element_current_shower(i,answer,0,0,"TRAN",2);
+                                    if(element[i]->node2.index==node_index) current+=I;
+                                    else current-=I;
+                                }
+                            }
+                        }
+                        return current;
+                    }
+                }
+            }
+        }
+        else if(type=="L"){
+            if(element[index]->node1.index==element[index]->node2.index)return 0.0;
+            if(analysis_type=="DC"){
+                if(LC_node_analysis==2){
                     int node_index=element[index]->node2.index;
                     double current=0.0;
                     for(int i=0;i<element.size();i++){
                         if(i!=index){
                             if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
-                                double I= element_current_shower(i,answer,0,0,"TRAN");
+                                double I;
+                                if(element[i]->getType()=="L"){
+                                    if(element[i]->node1.index==node_index)I= element_current_shower(i,answer,0,0,"DC",2);
+                                    else I= element_current_shower(i,answer,0,0,"DC",1);
+                                }
+                                else I= element_current_shower(i,answer,0,0,"DC",2);
                                 if(element[i]->node1.index==node_index) current+=I;
                                 else current-=I;
                             }
@@ -291,22 +338,25 @@ public:
                     }
                     return current;
                 }
-            }
-        }
-        else if(type=="L"){
-            if(analysis_type=="DC"){
-                int node_index=element[index]->node2.index;
-                double current=0.0;
-                for(int i=0;i<element.size();i++){
-                    if(i!=index){
-                        if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
-                            double I= element_current_shower(i,answer,0,0,"DC");
-                            if(element[i]->node1.index==node_index) current+=I;
-                            else current-=I;
+                else {
+                    int node_index=element[index]->node1.index;
+                    double current=0.0;
+                    for(int i=0;i<element.size();i++){
+                        if(i!=index){
+                            if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
+                                double I;
+                                if(element[i]->getType()=="L"){
+                                    if(element[i]->node1.index==node_index)I= element_current_shower(i,answer,0,0,"DC",2);
+                                    else I= element_current_shower(i,answer,0,0,"DC",1);
+                                }
+                                else I= element_current_shower(i,answer,0,0,"DC",2);
+                                if(element[i]->node2.index==node_index) current+=I;
+                                else current-=I;
+                            }
                         }
                     }
+                    return current;
                 }
-                return current;
             }
             else {
                 Inductor* p=dynamic_cast<Inductor*>(element[index].get());
@@ -316,18 +366,18 @@ public:
         }
         else if(type=="D"){
             Diode* p=dynamic_cast<Diode*>(element[index].get());
-            return answer[p->current_index];
+            return answer[p->current_index+node.size()];
         }
         else if(type=="V"){
             VoltageSource* p=dynamic_cast<VoltageSource*>(element[index].get());
-            return answer[p->current_index];
+            return answer[p->current_index+node.size()];
         }
         else if(type=="I"){
             return element[index]->getValue();
         }
         else if(type=="Vsin"){
             Vsin* p=dynamic_cast<Vsin*>(element[index].get());
-            return answer[p->current_index];
+            return answer[p->current_index+node.size()];
         }
         else if(type=="Isin"){
             Isin* p = dynamic_cast<Isin*>(element[index].get());
@@ -335,7 +385,7 @@ public:
         }
         else if(type=="E"){
             V_v* p = dynamic_cast<V_v*>(element[index].get());
-            return answer[p->current_index];
+            return answer[p->current_index+node.size()];
         }
         else if(type=="G"){
             I_v* p = dynamic_cast<I_v*>(element[index].get());
@@ -343,7 +393,7 @@ public:
         }
         else if(type=="H"){
             V_i* p = dynamic_cast<V_i*>(element[index].get());
-            return answer[p->current_index];
+            return answer[p->current_index+node.size()];
         }
         else if(type=="F"){
             I_i* p = dynamic_cast<I_i*>(element[index].get());
@@ -354,11 +404,9 @@ public:
                     break;
                 }
             }
-            return p->getValue()* element_current_shower(cntr_index,answer,tspent,tstep,analysis_type);
+            return p->getValue()* element_current_shower(cntr_index,answer,tspent,tstep,analysis_type,2);
         }
     }
-    vector<unique_ptr<Element>> element={};
-    vector<Node> node={};
     void Add(smatch match,string input_type){
         if(input_type=="add_Resistor"){}
         else if(input_type=="add_Capacitor"){}
@@ -888,7 +936,7 @@ private:
                     }
                     else {
                         int index= stoi(wanted_elements[j][2]);
-                        cout << fixed << setprecision(4) <<circuit.element_current_shower(index,answer,tspent,tstep,"TRAN");
+                        cout << fixed << setprecision(4) <<circuit.element_current_shower(index,answer,tspent,tstep,"TRAN",2);
                         cout << " amp." << endl;
                     }
                 }
@@ -942,7 +990,7 @@ private:
                     }
                     else {
                         int index= stoi(wanted_elements[j][2]);
-                        circuit.element_current_shower(index,answer,0,0,"DC");
+                        circuit.element_current_shower(index,answer,0,0,"DC",2);
                         cout << " amp." << endl;
                     }
                 }
