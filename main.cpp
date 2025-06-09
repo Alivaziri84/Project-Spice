@@ -242,6 +242,7 @@ public:
     void Delete_Equation(Matrix_solve m) override{}
 };
 class Circuit{
+
     double tstep,tspent;
     bool TRAN_LU_Needs_Update = 1,DC_LU_Needs_Update = 1;
 public:
