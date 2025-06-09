@@ -133,8 +133,8 @@ protected:
 public:
     Node node1,node2;
     Element(string t,string n, string v) : type(t),name(n),value(v){}
-    virtual void Add_Equation(Matrix_solve m)=0;
-    virtual void Delete_Equation(Matrix_solve m)=0;
+    virtual void Add_Equation(Matrix_solve m,int node_size)=0;
+    virtual void Delete_Equation(Matrix_solve m,int node_size)=0;
     string getName(){
         return name;
     }
@@ -160,31 +160,82 @@ public:
 class Resistor : public Element{
 public:
     Resistor(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index){
+                m.Primary_TRAN.Left[i][node1.index]-=1.0/getValue();
+                m.Primary_TRAN.Left[i][node2.index]+=1.0/getValue();
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index){
+                m.Primary_TRAN.Left[i][node2.index]-=1.0/getValue();
+                m.Primary_TRAN.Left[i][node1.index]+=1.0/getValue();
+            }
+        }
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index){
+                m.TRAN.Left[i][node1.index]-=1.0/getValue();
+                m.TRAN.Left[i][node2.index]+=1.0/getValue();
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index){
+                m.TRAN.Left[i][node2.index]-=1.0/getValue();
+                m.TRAN.Left[i][node1.index]+=1.0/getValue();
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index){
+                m.DC.Left[i][node1.index]-=1.0/getValue();
+                m.DC.Left[i][node2.index]+=1.0/getValue();
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index){
+                m.DC.Left[i][node2.index]-=1.0/getValue();
+                m.DC.Left[i][node1.index]+=1.0/getValue();
+            }
+        }
+    }
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Capacitor : public Element{
 public:
     int Primary_current_index;
     double previous_current,previous_voltage;
     Capacitor(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        Primary_current_index=m.Primary_TRAN.Left.size()-node_size;
+        for(int i=0;i<m.Primary_TRAN.Left.size();i++){
+            m.Primary_TRAN.Left[i].push_back(0.0);
+        }
+        vector<double> v(m.Primary_TRAN.Left.size()+1,0.0);
+        m.Primary_TRAN.Left.push_back(v);
+        m.Primary_TRAN.Right.push_back({0.0,0,Primary_current_index});
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node1.index]=1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node2.index]=-1.0;
+    }
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Inductor : public Element{
 public:
     int DC_current_index;
     double previous_current,previous_voltage;
     Inductor(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        DC_current_index=m.DC.Left.size()-node_size;
+        for(int i=0;i<m.DC.Left.size();i++){
+            m.DC.Left[i].push_back(0.0);
+        }
+        vector<double> v(m.DC.Left.size()+1,0.0);
+        m.DC.Left.push_back(v);
+        m.DC.Right.push_back({0.0,0,DC_current_index});
+        m.DC.Left[m.DC.Left.size()-1][node1.index]=1.0;
+        m.DC.Left[m.DC.Left.size()-1][node2.index]=-1.0;
+    }
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Diode : public Element{
 public:
     int current_index;
     Diode(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class VoltageSource : public Element{
 public:
@@ -192,14 +243,42 @@ public:
     int Primary_current_index;
     int DC_current_index;
     VoltageSource(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        Primary_current_index=m.Primary_TRAN.Left.size()-node_size;
+        for(int i=0;i<m.Primary_TRAN.Left.size();i++){
+            m.Primary_TRAN.Left[i].push_back(0.0);
+        }
+        vector<double> v(m.Primary_TRAN.Left.size()+1,0.0);
+        m.Primary_TRAN.Left.push_back(v);
+        m.Primary_TRAN.Right.push_back({getValue(),0,Primary_current_index});
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node1.index]=1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node2.index]=-1.0;
+        m.Primary_TRAN.Right[m.Primary_TRAN.Left.size()-1].
+        for(int i=0;i<m.DC.Left.size();i++){
+            m.DC.Left[i].push_back(0.0);
+        }
+        vector<double> v(m.DC.Left.size()+1,0.0);
+        m.DC.Left.push_back(v);
+        m.DC.Right.push_back({0.0,0,DC_current_index});
+        m.DC.Left[m.DC.Left.size()-1][node1.index]=1.0;
+        m.DC.Left[m.DC.Left.size()-1][node2.index]=-1.0;
+        DC_current_index=m.DC.Left.size()-node_size;
+        for(int i=0;i<m.DC.Left.size();i++){
+            m.DC.Left[i].push_back(0.0);
+        }
+        vector<double> v(m.DC.Left.size()+1,0.0);
+        m.DC.Left.push_back(v);
+        m.DC.Right.push_back({0.0,0,DC_current_index});
+        m.DC.Left[m.DC.Left.size()-1][node1.index]=1.0;
+        m.DC.Left[m.DC.Left.size()-1][node2.index]=-1.0;
+    }
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class CurrentSource : public Element{
 public:
     CurrentSource(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Vsin : public VoltageSource{
 private:
@@ -214,23 +293,23 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << value << ", " << Vamplitude << ", " << Frequency << ")" << endl;
     }
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class V_v : public VoltageSource{
 public:
     Node  cntr_node1,cntr_node2;
     V_v(string t,string n, string v,Node cn1,Node cn2): VoltageSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class V_i : public VoltageSource{
 public:
     string cntr_element;
     int cntr_index;
     V_i(string t,string n, string v,string ce): VoltageSource(t,n,v),cntr_element(ce){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Isin : public CurrentSource{
 private:
@@ -245,23 +324,23 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << value << ", " << Iamplitude << ", " << Frequency << ")" << endl;
     }
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class I_v : public CurrentSource{
 public:
     Node cntr_node1,cntr_node2;
     I_v(string t,string n, string v,Node cn1,Node cn2): CurrentSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class I_i : public CurrentSource{
 public:
     string cntr_element;
     int cntr_index;
     I_i(string t,string n, string v,string ce): CurrentSource(t,n,v),cntr_element(ce){}
-    void Add_Equation(Matrix_solve m) override{}
-    void Delete_Equation(Matrix_solve m) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Circuit{
     double tstep,tspent;
@@ -394,23 +473,6 @@ public:
         }
     }
     void Add(smatch match,string input_type){
-
-
-        regex pattern[]={regex(R"(^\s*add\s+([^CLDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                         regex(R"(^\s*add\s+([^RLDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                         regex(R"(^\s*add\s+([^RCDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                         regex(R"(^\s*add\s+([^RCLVI]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s*$)"),
-                         regex(R"(^\s*add\s+(\w+)\s+(\w+)\s*$)"),
-                         regex(R"(^\s*add\s+([^RCLDI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                         regex(R"(^\s*add\s+([^RCLDV]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                         regex(R"(^\s*add\s+([^I]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
-                         regex(R"(^\s*add\s+([^V]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
-                         regex(R"(^\s*add\s+([^G]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//E
-                         regex(R"(^\s*add\s+([^E]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//G
-                         regex(R"(^\s*add\s+([^F]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//H
-                         regex(R"(^\s*add\s+([^H]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)")//F
-        };
-
         if(input_type=="add_GND"){
             int node_index=-1;
             for(int i=0;i<node.size();i++){
@@ -426,19 +488,21 @@ public:
         else {
             int node_index1=-1,node_index2=-1;
             double value;
-            for(int i=0;i<node.size();i++){
-                if(node[i].name==match[2])node_index1=node[i].index;
-                if(node[i].name==match[3])node_index2=node[i].index;
-            }
-            if(node_index1==-1){
-                node_index1=node.size();
-                node.push_back({match[2],node_index1,0});
-                node[node_index1].Add_Equation(matrixSolve);
-            }
-            if(node_index2==-1){
-                node_index2=node.size();
-                node.push_back({match[3],node_index2,0});
-                node[node_index1].Add_Equation(matrixSolve);
+            if(input_type!="add_Diode"){
+                for(int i=0;i<node.size();i++){
+                    if(node[i].name==match[2])node_index1=node[i].index;
+                    if(node[i].name==match[3])node_index2=node[i].index;
+                }
+                if(node_index1==-1){
+                    node_index1=node.size();
+                    node.push_back({match[2],node_index1,0});
+                    node[node_index1].Add_Equation(matrixSolve);
+                }
+                if(node_index2==-1){
+                    node_index2=node.size();
+                    node.push_back({match[3],node_index2,0});
+                    node[node_index1].Add_Equation(matrixSolve);
+                }
             }
             if(input_type=="add_Resistor"){
                 element.push_back(make_unique<Resistor>("R",match[1],match[4]));
@@ -487,7 +551,11 @@ public:
             else if(input_type=="add_CurrentSource->current"){
                 element.push_back(make_unique<I_i>("F",match[1],match[5],match[4]));
             }
-            //element[element.size()-1]->Add_Equation(matrixSolve,node.size());
+            if(input_type!="add_Diode") {
+                element[element.size() - 1]->Add_Equation(matrixSolve, node.size());
+                element[element.size() - 1]->node1 = node[node_index1];
+                element[element.size() - 1]->node2 = node[node_index2];
+            }
         }
     }
     void Delete(smatch match,string input_type){
@@ -523,7 +591,6 @@ private:
     string input_type="";
     smatch match;
     string get="";
-
     void Error_handling(){
         if(regex_match(get,regex (R"(^\s*add\b.*)"))) {
             regex pattern[]={regex(R"(^\s*add\s+([^CLDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
@@ -901,7 +968,7 @@ private:
         else if(input_type=="nodes"){
             cout << "Available nodes:" << endl;
             for(int i=0;i<circuit.node.size();i++){
-                cout <<  circuit.node[i].name << endl;
+                cout <<  circuit.node[i].name ;
                 if(i!=circuit.node.size()-1) cout << " , ";
                 else cout << endl;
             }
