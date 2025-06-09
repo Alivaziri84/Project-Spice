@@ -256,6 +256,11 @@ public:
         m.Primary_TRAN.Right[m.Primary_TRAN.Left.size()-1].
         for(int i=0;i<m.DC.Left.size();i++){
             m.DC.Left[i].push_back(0.0);
+
+
+
+
+
         }
         vector<double> v(m.DC.Left.size()+1,0.0);
         m.DC.Left.push_back(v);
