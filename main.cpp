@@ -108,28 +108,50 @@ public:
     string name;
     int index;
     bool is_ground=0;
-    void Add(Matrix_solve m){}
-    void Delete(Matrix_solve m){}
+    void Add_Equation(Matrix_solve m){
+        vector<double> add={};
+        for(int i=0;i<m.Primary_TRAN.Left.size();i++) m.Primary_TRAN.Left[i].insert(m.Primary_TRAN.Left[i].begin()+index,0.0);
+        add.resize(m.Primary_TRAN.Left.size()+1,0.0);
+        m.Primary_TRAN.Left.push_back(add);
+        m.Primary_TRAN.Right.push_back({0.0,1,index});
+        for(int i=0;i<m.TRAN.Left.size();i++) m.TRAN.Left[i].insert(m.TRAN.Left[i].begin()+index,0.0);
+        add.resize(m.TRAN.Left.size()+1,0.0);
+        m.TRAN.Left.push_back(add);
+        m.TRAN.Right.push_back({0.0,1,index});
+        for(int i=0;i<m.DC.Left.size();i++) m.DC.Left[i].insert(m.DC.Left[i].begin()+index,0.0);
+        add.resize(m.DC.Left.size()+1,0.0);
+        m.DC.Left.push_back(add);
+        m.DC.Right.push_back({0.0,1,index});
+    }
+    void Delete_Equation(Matrix_solve m){}
 };
 class Element{
 protected:
     string type;
     string name;
-    double value;
+    string value;
 public:
     Node node1,node2;
-    Element(string t,string n, double v) : type(t),name(n),value(v){}
+    Element(string t,string n, string v) : type(t),name(n),value(v){}
     virtual void Add_Equation(Matrix_solve m)=0;
     virtual void Delete_Equation(Matrix_solve m)=0;
     string getName(){
         return name;
     }
-    void setValue(double v){
-        if(v>0)value=v;
-        else{}
+    void setValue(string v){
+        if(stod(v)>0)value=v;
+    }
+    string showValue(){
+        return value;
     }
     double getValue(){
-        return value;
+        double v= stod(value);
+        if(value.find("Meg")!=-1||value.find("M")!=-1)v*=1e+6;
+        else if(value.find("k")!=-1)v*=1000.0;
+        else if(value.find("u")!=-1)v*=1e-6;
+        else if(value.find("n")!=-1)v*=1e-9;
+        else if(value.find("m")!=-1)v*=0.001;
+        return v;
     };
     string getType(){
         return type;
@@ -137,7 +159,7 @@ public:
 };
 class Resistor : public Element{
 public:
-    Resistor(string t,string n, double v) : Element(t,n,v){}
+    Resistor(string t,string n, string v) : Element(t,n,v){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
@@ -145,7 +167,7 @@ class Capacitor : public Element{
 public:
     int Primary_current_index;
     double previous_current,previous_voltage;
-    Capacitor(string t,string n, double v) : Element(t,n,v){}
+    Capacitor(string t,string n, string v) : Element(t,n,v){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
@@ -153,44 +175,44 @@ class Inductor : public Element{
 public:
     int DC_current_index;
     double previous_current,previous_voltage;
-    Inductor(string t,string n, double v) : Element(t,n,v){}
+    Inductor(string t,string n, string v) : Element(t,n,v){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
 class Diode : public Element{
 public:
     int current_index;
-    Diode(string t,string n, double v) : Element(t,n,v){}
+    Diode(string t,string n, string v) : Element(t,n,v){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
 class VoltageSource : public Element{
 public:
-    int RTAN_current_index;
+    int TRAN_current_index;
     int Primary_current_index;
     int DC_current_index;
-    VoltageSource(string t,string n, double v) : Element(t,n,v){}
+    VoltageSource(string t,string n, string v) : Element(t,n,v){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
 class CurrentSource : public Element{
 public:
-    CurrentSource(string t,string n, double v) : Element(t,n,v){}
+    CurrentSource(string t,string n, string v) : Element(t,n,v){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
 class Vsin : public VoltageSource{
 private:
-    double Voffset,Vamplitude,Frequency;
+    double Vamplitude,Frequency;
 public:
-    Vsin(string t,string n,double vof , double vamp, double freq): VoltageSource(t,n,-1), Voffset(vof),Vamplitude(vamp),Frequency(freq){}
+    Vsin(string t,string n,string v , double vamp, double freq): VoltageSource(t,n,v),Vamplitude(vamp),Frequency(freq){}
     double get_voltage(double time){
-        return Voffset+Vamplitude*sin(2.0*3.1415926536*Frequency*time);
+        return getValue()+Vamplitude*sin(2.0*3.1415926536*Frequency*time);
     }
     void View_profile(){
         cout << "Element name : " << getName();
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
-        cout << " Type : " << "SIN(" << Voffset << ", " << Vamplitude << ", " << Frequency << ")" << endl;
+        cout << " Type : " << "SIN(" << value << ", " << Vamplitude << ", " << Frequency << ")" << endl;
     }
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
@@ -198,7 +220,7 @@ public:
 class V_v : public VoltageSource{
 public:
     Node  cntr_node1,cntr_node2;
-    V_v(string t,string n, double v,Node cn1,Node cn2): VoltageSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
+    V_v(string t,string n, string v,Node cn1,Node cn2): VoltageSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
@@ -206,22 +228,22 @@ class V_i : public VoltageSource{
 public:
     string cntr_element;
     int cntr_index;
-    V_i(string t,string n, double v,string ce): VoltageSource(t,n,v),cntr_element(ce){}
+    V_i(string t,string n, string v,string ce): VoltageSource(t,n,v),cntr_element(ce){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
 class Isin : public CurrentSource{
 private:
-    double Ioffset,Iamplitude,Frequency;
+    double Iamplitude,Frequency;
 public:
-    Isin(string t,string n,double iof , double iamp, double freq): CurrentSource(t,n,-1), Ioffset(iof),Iamplitude(iamp),Frequency(freq){}
+    Isin(string t,string n,string v , double iamp, double freq): CurrentSource(t,n, v),Iamplitude(iamp),Frequency(freq){}
     double get_current(double time){
-        return Ioffset+Iamplitude*sin(2.0*3.1415926536*Frequency*time);
+        return getValue()+Iamplitude*sin(2.0*3.1415926536*Frequency*time);
     }
     void View_profile(){
         cout << "Element name : " << getName();
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
-        cout << " Type : " << "SIN(" << Ioffset << ", " << Iamplitude << ", " << Frequency << ")" << endl;
+        cout << " Type : " << "SIN(" << value << ", " << Iamplitude << ", " << Frequency << ")" << endl;
     }
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
@@ -229,7 +251,7 @@ public:
 class I_v : public CurrentSource{
 public:
     Node cntr_node1,cntr_node2;
-    I_v(string t,string n, double v,Node cn1,Node cn2): CurrentSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
+    I_v(string t,string n, string v,Node cn1,Node cn2): CurrentSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
@@ -237,12 +259,11 @@ class I_i : public CurrentSource{
 public:
     string cntr_element;
     int cntr_index;
-    I_i(string t,string n, double v,string ce): CurrentSource(t,n,v),cntr_element(ce){}
+    I_i(string t,string n, string v,string ce): CurrentSource(t,n,v),cntr_element(ce){}
     void Add_Equation(Matrix_solve m) override{}
     void Delete_Equation(Matrix_solve m) override{}
 };
 class Circuit{
-
     double tstep,tspent;
     bool TRAN_LU_Needs_Update = 1,DC_LU_Needs_Update = 1;
 public:
@@ -288,7 +309,7 @@ public:
         }
         return false;
     }
-    double element_current_shower(int index,vector<double> answer,double tspent,double tstep,string analysis_type,int LC_node_analysis){
+    double element_current_shower(int index,vector<double> answer,double tspent,double tstep,string analysis_type){
         string type=element[index]->getType();
         if(type=="R"){
             double v1=answer[element[index]->node1.index];
@@ -301,92 +322,14 @@ public:
             else {
                 Capacitor* p=dynamic_cast<Capacitor*>(element[index].get());
                 if(tspent!=0) return 2*p->getValue()*(answer[p->node1.index]-answer[p->node2.index]-p->previous_voltage)/tstep-p->previous_current;
-                else {
-                    if(LC_node_analysis==2){
-                        int node_index=element[index]->node2.index;
-                        double current=0.0;
-                        for(int i=0;i<element.size();i++){
-                            if(i!=index){
-                                if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
-                                    double I;
-                                    if(element[i]->getType()=="C"){
-                                        if(element[i]->node1.index==node_index)I= element_current_shower(i,answer,0,0,"TRAN",2);
-                                        else I= element_current_shower(i,answer,0,0,"TRAN",1);
-                                    }
-                                    else I= element_current_shower(i,answer,0,0,"TRAN",2);
-                                    if(element[i]->node1.index==node_index) current+=I;
-                                    else current-=I;
-                                }
-                            }
-                        }
-                        return current;
-                    }
-                    else {
-                        int node_index=element[index]->node1.index;
-                        double current=0.0;
-                        for(int i=0;i<element.size();i++){
-                            if(i!=index){
-                                if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
-                                    double I;
-                                    if(element[i]->getType()=="C"){
-                                        if(element[i]->node1.index==node_index)I= element_current_shower(i,answer,0,0,"TRAN",2);
-                                        else I= element_current_shower(i,answer,0,0,"TRAN",1);
-                                    }
-                                    else I= element_current_shower(i,answer,0,0,"TRAN",2);
-                                    if(element[i]->node2.index==node_index) current+=I;
-                                    else current-=I;
-                                }
-                            }
-                        }
-                        return current;
-                    }
-                }
+                else return answer[p->Primary_current_index+node.size()];
             }
         }
         else if(type=="L"){
             if(element[index]->node1.index==element[index]->node2.index)return 0.0;
-            if(analysis_type=="DC"){
-                if(LC_node_analysis==2){
-                    int node_index=element[index]->node2.index;
-                    double current=0.0;
-                    for(int i=0;i<element.size();i++){
-                        if(i!=index){
-                            if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
-                                double I;
-                                if(element[i]->getType()=="L"){
-                                    if(element[i]->node1.index==node_index)I= element_current_shower(i,answer,0,0,"DC",2);
-                                    else I= element_current_shower(i,answer,0,0,"DC",1);
-                                }
-                                else I= element_current_shower(i,answer,0,0,"DC",2);
-                                if(element[i]->node1.index==node_index) current+=I;
-                                else current-=I;
-                            }
-                        }
-                    }
-                    return current;
-                }
-                else {
-                    int node_index=element[index]->node1.index;
-                    double current=0.0;
-                    for(int i=0;i<element.size();i++){
-                        if(i!=index){
-                            if(element[i]->node1.index==node_index||element[i]->node2.index==node_index){
-                                double I;
-                                if(element[i]->getType()=="L"){
-                                    if(element[i]->node1.index==node_index)I= element_current_shower(i,answer,0,0,"DC",2);
-                                    else I= element_current_shower(i,answer,0,0,"DC",1);
-                                }
-                                else I= element_current_shower(i,answer,0,0,"DC",2);
-                                if(element[i]->node2.index==node_index) current+=I;
-                                else current-=I;
-                            }
-                        }
-                    }
-                    return current;
-                }
-            }
+            Inductor* p=dynamic_cast<Inductor*>(element[index].get());
+            if(analysis_type=="DC") return answer[p->DC_current_index+node.size()];
             else {
-                Inductor* p=dynamic_cast<Inductor*>(element[index].get());
                 if(tspent!=0)return tstep*(answer[p->node1.index]-answer[p->node2.index]+p->previous_voltage)/(2*p->getValue())+p->previous_current;
                 else return 0.0;
             }
@@ -397,14 +340,22 @@ public:
         }
         else if(type=="V"){
             VoltageSource* p=dynamic_cast<VoltageSource*>(element[index].get());
-            return answer[p->current_index+node.size()];
+            if(analysis_type=="DC") return answer[p->DC_current_index+node.size()];
+            else {
+                if(tspent==0)return answer[p->Primary_current_index+node.size()];
+                return answer[p->TRAN_current_index+node.size()];
+            }
         }
         else if(type=="I"){
             return element[index]->getValue();
         }
         else if(type=="Vsin"){
             Vsin* p=dynamic_cast<Vsin*>(element[index].get());
-            return answer[p->current_index+node.size()];
+            if(analysis_type=="DC") return answer[p->DC_current_index+node.size()];
+            else {
+                if(tspent==0)return answer[p->Primary_current_index+node.size()];
+                return answer[p->TRAN_current_index+node.size()];
+            }
         }
         else if(type=="Isin"){
             Isin* p = dynamic_cast<Isin*>(element[index].get());
@@ -412,7 +363,11 @@ public:
         }
         else if(type=="E"){
             V_v* p = dynamic_cast<V_v*>(element[index].get());
-            return answer[p->current_index+node.size()];
+            if(analysis_type=="DC") return answer[p->DC_current_index+node.size()];
+            else {
+                if(tspent==0)return answer[p->Primary_current_index+node.size()];
+                return answer[p->TRAN_current_index+node.size()];
+            }
         }
         else if(type=="G"){
             I_v* p = dynamic_cast<I_v*>(element[index].get());
@@ -420,7 +375,11 @@ public:
         }
         else if(type=="H"){
             V_i* p = dynamic_cast<V_i*>(element[index].get());
-            return answer[p->current_index+node.size()];
+            if(analysis_type=="DC") return answer[p->DC_current_index+node.size()];
+            else {
+                if(tspent==0)return answer[p->Primary_current_index+node.size()];
+                return answer[p->TRAN_current_index+node.size()];
+            }
         }
         else if(type=="F"){
             I_i* p = dynamic_cast<I_i*>(element[index].get());
@@ -431,7 +390,7 @@ public:
                     break;
                 }
             }
-            return p->getValue()* element_current_shower(cntr_index,answer,tspent,tstep,analysis_type,2);
+            return p->getValue()* element_current_shower(cntr_index,answer,tspent,tstep,analysis_type);
         }
     }
     void Add(smatch match,string input_type){
@@ -460,9 +419,9 @@ public:
             if(node_index==-1){
                 node_index=node.size();
                 node.push_back({match[2],node_index,1});
-                node[node_index].Add(matrixSolve);
+                node[node_index].Add_Equation(matrixSolve);
             }
-
+            node[node_index].is_ground=1;
         }
         else {
             int node_index1=-1,node_index2=-1;
@@ -474,25 +433,60 @@ public:
             if(node_index1==-1){
                 node_index1=node.size();
                 node.push_back({match[2],node_index1,0});
-                node[node_index1].Add(matrixSolve);
+                node[node_index1].Add_Equation(matrixSolve);
             }
             if(node_index2==-1){
                 node_index2=node.size();
                 node.push_back({match[3],node_index2,0});
-                node[node_index1].Add(matrixSolve);
+                node[node_index1].Add_Equation(matrixSolve);
             }
-            if(input_type=="add_Resistor"){}
-            else if(input_type=="add_Capacitor"){}
-            else if(input_type=="add_Inductor"){}
-            else if(input_type=="add_Diode"){}
-            else if(input_type=="add_VoltageSource"){}
-            else if(input_type=="add_CurrentSource"){}
-            else if(input_type=="add_VoltageSource_sin"){}
-            else if(input_type=="add_CurrentSource_sin"){}
-            else if(input_type=="add_VoltageSource->voltage"){}
-            else if(input_type=="add_CurrentSource->voltage"){}
-            else if(input_type=="add_VoltageSource->current"){}
-            else if(input_type=="add_CurrentSource->current"){}
+            if(input_type=="add_Resistor"){
+                element.push_back(make_unique<Resistor>("R",match[1],match[4]));
+            }
+            else if(input_type=="add_Capacitor"){
+                element.push_back(make_unique<Capacitor>("C",match[1],match[4]));
+            }
+            else if(input_type=="add_Inductor"){
+                element.push_back(make_unique<Inductor>("L",match[1],match[4]));
+            }
+            else if(input_type=="add_Diode"){
+                if(match[4]=="D") element.push_back(make_unique<Diode>("D",match[1],"0"));
+                else element.push_back(make_unique<Diode>("D",match[1],"1"));
+            }
+            else if(input_type=="add_VoltageSource"){
+                element.push_back(make_unique<VoltageSource>("V",match[1],match[4]));
+            }
+            else if(input_type=="add_CurrentSource"){
+                element.push_back(make_unique<CurrentSource>("I",match[1],match[4]));
+            }
+            else if(input_type=="add_VoltageSource_sin"){
+                element.push_back(make_unique<Vsin>("Vsin",match[1],match[4], stod(match[5]), stod(match[6])));
+            }
+            else if(input_type=="add_CurrentSource_sin"){
+                element.push_back(make_unique<Isin>("Isin",match[1],match[4], stod(match[5]), stod(match[6])));
+            }
+            else if(input_type=="add_VoltageSource->voltage"){
+                int cntr_node1=0,cntr_node2=0;
+                for(int i=0;i<node.size();i++){
+                    if(node[i].name==match[4])cntr_node1=node[i].index;
+                    if(node[i].name==match[5])cntr_node2=node[i].index;
+                }
+                element.push_back(make_unique<V_v>("E",match[1],match[6],node[cntr_node1],node[cntr_node2]));
+            }
+            else if(input_type=="add_CurrentSource->voltage"){
+                int cntr_node1=0,cntr_node2=0;
+                for(int i=0;i<node.size();i++){
+                    if(node[i].name==match[4])cntr_node1=node[i].index;
+                    if(node[i].name==match[5])cntr_node2=node[i].index;
+                }
+                element.push_back(make_unique<I_v>("G",match[1],match[6],node[cntr_node1],node[cntr_node2]));
+            }
+            else if(input_type=="add_VoltageSource->current"){
+                element.push_back(make_unique<V_i>("H",match[1],match[5],match[4]));
+            }
+            else if(input_type=="add_CurrentSource->current"){
+                element.push_back(make_unique<I_i>("F",match[1],match[5],match[4]));
+            }
         }
     }
     void Delete(smatch match,string input_type){
@@ -538,8 +532,8 @@ private:
                              regex(R"(^\s*add\s+(\w+)\s+(\w+)\s*$)"),
                              regex(R"(^\s*add\s+([^RCLDI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
                              regex(R"(^\s*add\s+([^RCLDV]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
-                             regex(R"(^\s*add\s+([^I]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
-                             regex(R"(^\s*add\s+([^V]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
+                             regex(R"(^\s*add\s+([^I]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
+                             regex(R"(^\s*add\s+([^V]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
                              regex(R"(^\s*add\s+([^G]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//E
                              regex(R"(^\s*add\s+([^E]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//G
                              regex(R"(^\s*add\s+([^F]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//H
@@ -1016,8 +1010,8 @@ private:
                         }
                         else {
                             int index= stoi(wanted_elements[j][2]);
-                            if(tspent==0.0)cout << fixed << setprecision(4) <<circuit.element_current_shower(index,circuit.matrixSolve.Primary_TRAN.Answer,tspent,tstep,"TRAN",2);
-                            else cout << fixed << setprecision(4) <<circuit.element_current_shower(index,circuit.matrixSolve.TRAN.Answer,tspent,tstep,"TRAN",2);
+                            if(tspent==0.0)cout << fixed << setprecision(4) <<circuit.element_current_shower(index,circuit.matrixSolve.Primary_TRAN.Answer,tspent,tstep,"TRAN");
+                            else cout << fixed << setprecision(4) <<circuit.element_current_shower(index,circuit.matrixSolve.TRAN.Answer,tspent,tstep,"TRAN");
                             cout << " amp." << endl;
                         }
                     }
@@ -1075,7 +1069,7 @@ private:
                         }
                         else {
                             int index= stoi(wanted_elements[j][2]);
-                            circuit.element_current_shower(index,circuit.matrixSolve.DC.Answer,0,0,"DC",2);
+                            circuit.element_current_shower(index,circuit.matrixSolve.DC.Answer,0,0,"DC");
                             cout << " amp." << endl;
                         }
                     }
