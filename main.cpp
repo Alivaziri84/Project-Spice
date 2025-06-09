@@ -5,9 +5,14 @@
 #include <memory>
 #include <iomanip>
 using namespace std;
+struct Right_Matrix{
+    double value;
+    bool is_node;
+    int index;
+};
 struct Matrices{
     vector<vector<double>> Left;
-    vector<vector<double>> Right;
+    vector<Right_Matrix> Right;
     vector<vector<double>> L_Left;
     vector<vector<double>> U_Left;
     vector<double> Answer;
@@ -84,7 +89,7 @@ public:
         vector<double> external_answer(size);
         M.Answer.resize(size);
         for(int i=0;i<size;i++){
-            external_answer[i]=M.Right[i][0];
+            external_answer[i]=M.Right[i].value;
             for(int j=0;j<i;j++){
                 external_answer[i]-=M.L_Left[i][j]*external_answer[j];
             }
@@ -103,7 +108,8 @@ public:
     string name;
     int index;
     bool is_ground=0;
-    void Add(){}
+    void Add(Matrix_solve m){}
+    void Delete(Matrix_solve m){}
 };
 class Element{
 protected:
@@ -113,7 +119,8 @@ protected:
 public:
     Node node1,node2;
     Element(string t,string n, double v) : type(t),name(n),value(v){}
-    virtual void Add(vector<vector<double>> & G,vector<double> I)=0;
+    virtual void Add_Equation(Matrix_solve m)=0;
+    virtual void Delete_Equation(Matrix_solve m)=0;
     string getName(){
         return name;
     }
@@ -131,37 +138,46 @@ public:
 class Resistor : public Element{
 public:
     Resistor(string t,string n, double v) : Element(t,n,v){}
-    void Add(vector<vector<double>> & left,vector<double> right) override{}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class Capacitor : public Element{
 public:
-    double previous_current;
+    int Primary_current_index;
+    double previous_current,previous_voltage;
     Capacitor(string t,string n, double v) : Element(t,n,v){}
-    void Add(vector<vector<double>> & left,vector<double> right) override{}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class Inductor : public Element{
 public:
-    double previous_current;
+    int DC_current_index;
+    double previous_current,previous_voltage;
     Inductor(string t,string n, double v) : Element(t,n,v){}
-    void Add(vector<vector<double>> & left,vector<double> right) override{
-    }
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class Diode : public Element{
 public:
     int current_index;
     Diode(string t,string n, double v) : Element(t,n,v){}
-    void Add(vector<vector<double>> & left,vector<double> right) override{}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class VoltageSource : public Element{
 public:
-    int current_index;
+    int RTAN_current_index;
+    int Primary_current_index;
+    int DC_current_index;
     VoltageSource(string t,string n, double v) : Element(t,n,v){}
-    void Add(vector<vector<double>> & left,vector<double> right) override{}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class CurrentSource : public Element{
 public:
     CurrentSource(string t,string n, double v) : Element(t,n,v){}
-    void Add(vector<vector<double>> & left,vector<double> right) override{}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class Vsin : public VoltageSource{
 private:
@@ -176,17 +192,23 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << Voffset << ", " << Vamplitude << ", " << Frequency << ")" << endl;
     }
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class V_v : public VoltageSource{
 public:
     Node  cntr_node1,cntr_node2;
     V_v(string t,string n, double v,Node cn1,Node cn2): VoltageSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class V_i : public VoltageSource{
 public:
     string cntr_element;
     int cntr_index;
     V_i(string t,string n, double v,string ce): VoltageSource(t,n,v),cntr_element(ce){}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class Isin : public CurrentSource{
 private:
@@ -201,25 +223,29 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << Ioffset << ", " << Iamplitude << ", " << Frequency << ")" << endl;
     }
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class I_v : public CurrentSource{
 public:
     Node cntr_node1,cntr_node2;
     I_v(string t,string n, double v,Node cn1,Node cn2): CurrentSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class I_i : public CurrentSource{
 public:
     string cntr_element;
     int cntr_index;
     I_i(string t,string n, double v,string ce): CurrentSource(t,n,v),cntr_element(ce){}
+    void Add_Equation(Matrix_solve m) override{}
+    void Delete_Equation(Matrix_solve m) override{}
 };
 class Circuit{
-    Matrix_solve matrixSolve;
     double tstep,tspent;
-    int current_index=0;
-    bool matrix_needs_update = 1;
-    bool first_print=1;
+    bool TRAN_LU_Needs_Update = 1,DC_LU_Needs_Update = 1;
 public:
+    Matrix_solve matrixSolve;
     vector<unique_ptr<Element>> element={};
     vector<Node> node={};
     void containsElementWithName(bool &b, string s){
@@ -273,7 +299,7 @@ public:
             if(analysis_type=="DC")return 0.0;
             else {
                 Capacitor* p=dynamic_cast<Capacitor*>(element[index].get());
-                if(tspent!=0) return p->previous_current;
+                if(tspent!=0) return 2*p->getValue()*(answer[p->node1.index]-answer[p->node2.index]-p->previous_voltage)/tstep-p->previous_current;
                 else {
                     if(LC_node_analysis==2){
                         int node_index=element[index]->node2.index;
@@ -360,7 +386,7 @@ public:
             }
             else {
                 Inductor* p=dynamic_cast<Inductor*>(element[index].get());
-                if(tspent!=0)return p->previous_current;
+                if(tspent!=0)return tstep*(answer[p->node1.index]-answer[p->node2.index]+p->previous_voltage)/(2*p->getValue())+p->previous_current;
                 else return 0.0;
             }
         }
@@ -408,19 +434,65 @@ public:
         }
     }
     void Add(smatch match,string input_type){
-        if(input_type=="add_Resistor"){}
-        else if(input_type=="add_Capacitor"){}
-        else if(input_type=="add_Inductor"){}
-        else if(input_type=="add_Diode"){}
-        else if(input_type=="add_GND"){}
-        else if(input_type=="add_VoltageSource"){}
-        else if(input_type=="add_CurrentSource"){}
-        else if(input_type=="add_VoltageSource_sin"){}
-        else if(input_type=="add_CurrentSource_sin"){}
-        else if(input_type=="add_VoltageSource->voltage"){}
-        else if(input_type=="add_CurrentSource->voltage"){}
-        else if(input_type=="add_VoltageSource->current"){}
-        else if(input_type=="add_CurrentSource->current"){}
+
+
+        regex pattern[]={regex(R"(^\s*add\s+([^CLDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                         regex(R"(^\s*add\s+([^RLDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                         regex(R"(^\s*add\s+([^RCDVI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                         regex(R"(^\s*add\s+([^RCLVI]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s*$)"),
+                         regex(R"(^\s*add\s+(\w+)\s+(\w+)\s*$)"),
+                         regex(R"(^\s*add\s+([^RCLDI]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                         regex(R"(^\s*add\s+([^RCLDV]\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*$)"),
+                         regex(R"(^\s*add\s+([^I]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
+                         regex(R"(^\s*add\s+([^V]\w+)\s+(\w+)\s+(\w+)\s+SIN\(\s*([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s+([-+]?\d+(?:\.\d+)?(?:Meg|[kMunm]|e[-+]?\d+(?:\.\d+)?)?)\s*\)\s*$)"),
+                         regex(R"(^\s*add\s+([^G]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//E
+                         regex(R"(^\s*add\s+([^E]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//G
+                         regex(R"(^\s*add\s+([^F]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)"),//H
+                         regex(R"(^\s*add\s+([^H]\w+)\s+(\w+)\s+(\w+)\s+(\w+)\s+([-+]?\d+(?:\.\d+)?)\s*$)")//F
+        };
+
+        if(input_type=="add_GND"){
+            int node_index=-1;
+            for(int i=0;i<node.size();i++){
+                if(node[i].name==match[2])node_index=node[i].index;
+            }
+            if(node_index==-1){
+                node_index=node.size();
+                node.push_back({match[2],node_index,1});
+                node[node_index].Add(matrixSolve);
+            }
+
+        }
+        else {
+            int node_index1=-1,node_index2=-1;
+            double value;
+            for(int i=0;i<node.size();i++){
+                if(node[i].name==match[2])node_index1=node[i].index;
+                if(node[i].name==match[3])node_index2=node[i].index;
+            }
+            if(node_index1==-1){
+                node_index1=node.size();
+                node.push_back({match[2],node_index1,0});
+                node[node_index1].Add(matrixSolve);
+            }
+            if(node_index2==-1){
+                node_index2=node.size();
+                node.push_back({match[3],node_index2,0});
+                node[node_index1].Add(matrixSolve);
+            }
+            if(input_type=="add_Resistor"){}
+            else if(input_type=="add_Capacitor"){}
+            else if(input_type=="add_Inductor"){}
+            else if(input_type=="add_Diode"){}
+            else if(input_type=="add_VoltageSource"){}
+            else if(input_type=="add_CurrentSource"){}
+            else if(input_type=="add_VoltageSource_sin"){}
+            else if(input_type=="add_CurrentSource_sin"){}
+            else if(input_type=="add_VoltageSource->voltage"){}
+            else if(input_type=="add_CurrentSource->voltage"){}
+            else if(input_type=="add_VoltageSource->current"){}
+            else if(input_type=="add_CurrentSource->current"){}
+        }
     }
     void Delete(smatch match,string input_type){
         if(input_type=="delete_Element"){}
@@ -434,13 +506,20 @@ public:
             }
         }
     }
-    vector<double> Print_TRAN(smatch match,double t_spent){
-        /*
-         return 2*p->getValue()*(answer[p->node1.index]-answer[p->node2.index]-p->previous_voltage)/tstep-p->previous_current;
-         tstep*(answer[p->node1.index]-answer[p->node2.index]+p->previous_voltage)/(2*p->getValue())+p->previous_current;
-         */
+    bool Print_TRAN(smatch match,double t_spent){
+        if(TRAN_LU_Needs_Update){
+            if(!matrixSolve.LUsetter(matrixSolve.Primary_TRAN))return false;
+            if(!matrixSolve.LUsetter(matrixSolve.TRAN))return false;
+            TRAN_LU_Needs_Update=0;
+        }
+        if(tspent==0)matrixSolve.Solve(matrixSolve.Primary_TRAN);
     }
-    vector<double> Print_DC(smatch match,double final_value,int index){}
+    bool Print_DC(smatch match,double final_value,int index){
+        if(DC_LU_Needs_Update){
+            if(!matrixSolve.LUsetter(matrixSolve.DC))return false;
+            DC_LU_Needs_Update=0;
+        }
+    }
 };
 class View{
 private:
@@ -895,7 +974,6 @@ private:
         else if(input_type=="print_TRAN"){
             vector<vector<string>> wanted_elements={};
             double tstep,tstart,tstop,tspent;
-            vector<double> answer;
             string input=match[4];
             regex re(R"(([IV])\((\w+)\))");
             for (sregex_iterator it(input.begin(),input.end(),re);it!=sregex_iterator();it++){
@@ -927,25 +1005,31 @@ private:
             tspent=tstart;
             for(int i=0;i<=number;i++){
                 tspent+=double(i)*tstep;
-                answer=circuit.Print_TRAN(match,tspent);
-                cout << tspent <<  " seconds have passed since the start of the circuit :" << endl;
-                for(int j=0;j<wanted_elements.size();j++){
-                    cout << wanted_elements[j][1] << " : " << wanted_elements[j][0] << " = ";
-                    if(wanted_elements[j][0]=="V"){
-                        cout << answer[stoi(wanted_elements[j][2])]<< " volt." << endl;
+                if(circuit.Print_TRAN(match,tspent)){
+                    cout << tspent <<  " seconds have passed since the start of the circuit :" << endl;
+                    for(int j=0;j<wanted_elements.size();j++){
+                        cout << wanted_elements[j][1] << " : " << wanted_elements[j][0] << " = ";
+                        if(wanted_elements[j][0]=="V"){
+                            if(tspent==0.0)cout << circuit.matrixSolve.Primary_TRAN.Answer[stoi(wanted_elements[j][2])]<< " volt." << endl;
+                            else cout << circuit.matrixSolve.TRAN.Answer[stoi(wanted_elements[j][2])]<< " volt." << endl;
+                        }
+                        else {
+                            int index= stoi(wanted_elements[j][2]);
+                            if(tspent==0.0)cout << fixed << setprecision(4) <<circuit.element_current_shower(index,circuit.matrixSolve.Primary_TRAN.Answer,tspent,tstep,"TRAN",2);
+                            else cout << fixed << setprecision(4) <<circuit.element_current_shower(index,circuit.matrixSolve.TRAN.Answer,tspent,tstep,"TRAN",2);
+                            cout << " amp." << endl;
+                        }
                     }
-                    else {
-                        int index= stoi(wanted_elements[j][2]);
-                        cout << fixed << setprecision(4) <<circuit.element_current_shower(index,answer,tspent,tstep,"TRAN",2);
-                        cout << " amp." << endl;
-                    }
+                }
+                else {
+                    cout << "Error: The electrical circuit cannot be solved." << endl;
+                    break;
                 }
             }
         }
         else if(input_type=="print_DC"){
             vector<vector<string>> wanted_elements={};
             double StartValue,EndValue,Increment;
-            vector<double> answer;
             for(int i=0;i<circuit.element.size();i++){
                 if(circuit.element[i]->getName()==match[1]){
                     if(circuit.element[i]->getType()=="V")wanted_elements.push_back({"V",match[1], to_string(i)});
@@ -980,19 +1064,24 @@ private:
             int number=(EndValue-StartValue)/Increment;
             for(int i=0;i<=number;i++){
                 StartValue+=double(i)*Increment;
-                answer=circuit.Print_DC(match,StartValue, stoi(wanted_elements[0][2]));
-                if(wanted_elements[0][0]=="V") cout << "VoltageSource : "<< wanted_elements[0][1] << " _ Voltage : " << StartValue << " volt. DC :"<< endl;
-                else cout << "CurrentSource : " << wanted_elements[0][1] << " _ current : " << StartValue << " amp. DC :"<< endl;;
-                for(int j=1;j<wanted_elements.size();j++){
-                    cout << wanted_elements[j][1] << " : " << wanted_elements[j][0] << " = ";
-                    if(wanted_elements[j][0]=="V"){
-                        cout << answer[stoi(wanted_elements[j][2])]<< " volt." << endl;
+                if(circuit.Print_DC(match,StartValue, stoi(wanted_elements[0][2]))){
+                    if(wanted_elements[0][0]=="V") cout << "VoltageSource : "<< wanted_elements[0][1] << " _ Voltage : " << StartValue << " volt. DC :"<< endl;
+                    else cout << "CurrentSource : " << wanted_elements[0][1] << " _ current : " << StartValue << " amp. DC :"<< endl;;
+                    for(int j=1;j<wanted_elements.size();j++){
+                        cout << wanted_elements[j][1] << " : " << wanted_elements[j][0] << " = ";
+                        if(wanted_elements[j][0]=="V"){
+                            cout << circuit.matrixSolve.DC.Answer[stoi(wanted_elements[j][2])]<< " volt." << endl;
+                        }
+                        else {
+                            int index= stoi(wanted_elements[j][2]);
+                            circuit.element_current_shower(index,circuit.matrixSolve.DC.Answer,0,0,"DC",2);
+                            cout << " amp." << endl;
+                        }
                     }
-                    else {
-                        int index= stoi(wanted_elements[j][2]);
-                        circuit.element_current_shower(index,answer,0,0,"DC",2);
-                        cout << " amp." << endl;
-                    }
+                }
+                else {
+                    cout << "Error: The electrical circuit cannot be solved." << endl;
+                    break;
                 }
             }
         }
