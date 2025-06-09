@@ -487,6 +487,7 @@ public:
             else if(input_type=="add_CurrentSource->current"){
                 element.push_back(make_unique<I_i>("F",match[1],match[5],match[4]));
             }
+            //element[element.size()-1]->Add_Equation(matrixSolve,node.size());
         }
     }
     void Delete(smatch match,string input_type){
