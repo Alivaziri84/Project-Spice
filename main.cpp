@@ -123,7 +123,37 @@ public:
         m.DC.Left.push_back(add);
         m.DC.Right.push_back({0.0,1,index});
     }
+    void Add_GND(Matrix_solve m){
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==index){
+                for(int j=0;j<m.Primary_TRAN.Left[i].size();j++){
+                    m.Primary_TRAN.Left[i][j]=0.0;
+                }
+                m.Primary_TRAN.Left[i][index]=1.0;
+                m.Primary_TRAN.Right[i].value=0.0;
+            }
+        }
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==index){
+                for(int j=0;j<m.TRAN.Left[i].size();j++){
+                    m.TRAN.Left[i][j]=0.0;
+                }
+                m.TRAN.Left[i][index]=1.0;
+                m.TRAN.Right[i].value=0.0;
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==index){
+                for(int j=0;j<m.DC.Left[i].size();j++){
+                    m.DC.Left[i][j]=0.0;
+                }
+                m.DC.Left[i][index]=1.0;
+                m.DC.Right[i].value=0.0;
+            }
+        }
+    }
     void Delete_Equation(Matrix_solve m){}
+    void Delete_GND(Matrix_solve m){}
 };
 class Element{
 protected:
@@ -162,31 +192,31 @@ public:
     Resistor(string t,string n, string v) : Element(t,n,v){}
     void Add_Equation(Matrix_solve m,int node_size) override{
         for(int i=0;i<m.Primary_TRAN.Right.size();i++){
-            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
                 m.Primary_TRAN.Left[i][node1.index]-=1.0/getValue();
                 m.Primary_TRAN.Left[i][node2.index]+=1.0/getValue();
             }
-            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
                 m.Primary_TRAN.Left[i][node2.index]-=1.0/getValue();
                 m.Primary_TRAN.Left[i][node1.index]+=1.0/getValue();
             }
         }
         for(int i=0;i<m.TRAN.Right.size();i++){
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
                 m.TRAN.Left[i][node1.index]-=1.0/getValue();
                 m.TRAN.Left[i][node2.index]+=1.0/getValue();
             }
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
                 m.TRAN.Left[i][node2.index]-=1.0/getValue();
                 m.TRAN.Left[i][node1.index]+=1.0/getValue();
             }
         }
         for(int i=0;i<m.DC.Right.size();i++){
-            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
                 m.DC.Left[i][node1.index]-=1.0/getValue();
                 m.DC.Left[i][node2.index]+=1.0/getValue();
             }
-            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node1.is_ground){
                 m.DC.Left[i][node2.index]-=1.0/getValue();
                 m.DC.Left[i][node1.index]+=1.0/getValue();
             }
@@ -207,8 +237,16 @@ public:
         vector<double> v(m.Primary_TRAN.Left.size()+1,0.0);
         m.Primary_TRAN.Left.push_back(v);
         m.Primary_TRAN.Right.push_back({0.0,0,Primary_current_index});
-        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node1.index]=1.0;
-        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node2.index]=-1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node1.index]+=1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node2.index]-=1.0;
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][m.Primary_TRAN.Left[i].size()-1]-=1.0;
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][m.Primary_TRAN.Left[i].size()-1]+=1.0;
+            }
+        }
     }
     void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
@@ -225,8 +263,16 @@ public:
         vector<double> v(m.DC.Left.size()+1,0.0);
         m.DC.Left.push_back(v);
         m.DC.Right.push_back({0.0,0,DC_current_index});
-        m.DC.Left[m.DC.Left.size()-1][node1.index]=1.0;
-        m.DC.Left[m.DC.Left.size()-1][node2.index]=-1.0;
+        m.DC.Left[m.DC.Left.size()-1][node1.index]+=1.0;
+        m.DC.Left[m.DC.Left.size()-1][node2.index]-=1.0;
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][m.DC.Left[i].size()-1]-=1.0;
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Left[i][m.DC.Left[i].size()-1]+=1.0;
+            }
+        }
     }
     void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
@@ -251,38 +297,82 @@ public:
         vector<double> v(m.Primary_TRAN.Left.size()+1,0.0);
         m.Primary_TRAN.Left.push_back(v);
         m.Primary_TRAN.Right.push_back({getValue(),0,Primary_current_index});
-        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node1.index]=1.0;
-        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node2.index]=-1.0;
-        m.Primary_TRAN.Right[m.Primary_TRAN.Left.size()-1].
-        for(int i=0;i<m.DC.Left.size();i++){
-            m.DC.Left[i].push_back(0.0);
-
-
-
-
-
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node1.index]+=1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node2.index]-=1.0;
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][m.Primary_TRAN.Left[i].size()-1]-=1.0;
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][m.Primary_TRAN.Left[i].size()-1]+=1.0;
+            }
         }
-        vector<double> v(m.DC.Left.size()+1,0.0);
-        m.DC.Left.push_back(v);
-        m.DC.Right.push_back({0.0,0,DC_current_index});
-        m.DC.Left[m.DC.Left.size()-1][node1.index]=1.0;
-        m.DC.Left[m.DC.Left.size()-1][node2.index]=-1.0;
         DC_current_index=m.DC.Left.size()-node_size;
         for(int i=0;i<m.DC.Left.size();i++){
             m.DC.Left[i].push_back(0.0);
         }
-        vector<double> v(m.DC.Left.size()+1,0.0);
+        v.resize(m.DC.Left.size()+1,0.0);
         m.DC.Left.push_back(v);
-        m.DC.Right.push_back({0.0,0,DC_current_index});
-        m.DC.Left[m.DC.Left.size()-1][node1.index]=1.0;
-        m.DC.Left[m.DC.Left.size()-1][node2.index]=-1.0;
+        m.DC.Right.push_back({getValue(),0,DC_current_index});
+        m.DC.Left[m.DC.Left.size()-1][node1.index]+=1.0;
+        m.DC.Left[m.DC.Left.size()-1][node2.index]-=1.0;
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][m.DC.Left[i].size()-1]-=1.0;
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Left[i][m.DC.Left[i].size()-1]+=1.0;
+            }
+        }
+        TRAN_current_index=m.TRAN.Left.size()-node_size;
+        for(int i=0;i<m.TRAN.Left.size();i++){
+            m.TRAN.Left[i].push_back(0.0);
+        }
+        v.resize(m.TRAN.Left.size()+1,0.0);
+        m.TRAN.Left.push_back(v);
+        m.TRAN.Right.push_back({getValue(),0,TRAN_current_index});
+        m.TRAN.Left[m.TRAN.Left.size()-1][node1.index]+=1.0;
+        m.TRAN.Left[m.TRAN.Left.size()-1][node2.index]-=1.0;
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][m.TRAN.Left[i].size()-1]-=1.0;
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][m.TRAN.Left[i].size()-1]+=1.0;
+            }
+        }
     }
     void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class CurrentSource : public Element{
 public:
     CurrentSource(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Right[i].value+=getValue();
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Right[i].value-=getValue();
+            }
+        }
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Right[i].value+=getValue();
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Right[i].value-=getValue();
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Right[i].value+=getValue();
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Right[i].value-=getValue();
+            }
+        }
+    }
     void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Vsin : public VoltageSource{
@@ -298,22 +388,6 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << value << ", " << Vamplitude << ", " << Frequency << ")" << endl;
     }
-    void Add_Equation(Matrix_solve m,int node_size) override{}
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
-};
-class V_v : public VoltageSource{
-public:
-    Node  cntr_node1,cntr_node2;
-    V_v(string t,string n, string v,Node cn1,Node cn2): VoltageSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
-    void Add_Equation(Matrix_solve m,int node_size) override{}
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
-};
-class V_i : public VoltageSource{
-public:
-    string cntr_element;
-    int cntr_index;
-    V_i(string t,string n, string v,string ce): VoltageSource(t,n,v),cntr_element(ce){}
-    void Add_Equation(Matrix_solve m,int node_size) override{}
     void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Isin : public CurrentSource{
@@ -329,22 +403,219 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << value << ", " << Iamplitude << ", " << Frequency << ")" << endl;
     }
-    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
+};
+class V_v : public VoltageSource{
+public:
+    Node  cntr_node1,cntr_node2;
+    V_v(string t,string n, string v,Node cn1,Node cn2): VoltageSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        Primary_current_index=m.Primary_TRAN.Left.size()-node_size;
+        for(int i=0;i<m.Primary_TRAN.Left.size();i++){
+            m.Primary_TRAN.Left[i].push_back(0.0);
+        }
+        vector<double> v(m.Primary_TRAN.Left.size()+1,0.0);
+        m.Primary_TRAN.Left.push_back(v);
+        m.Primary_TRAN.Right.push_back({0.0,0,Primary_current_index});
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node1.index]+=1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node2.index]-=1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][cntr_node1.index]-=getValue();
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][cntr_node2.index]+=getValue();
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][m.Primary_TRAN.Left[i].size()-1]-=1.0;
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][m.Primary_TRAN.Left[i].size()-1]+=1.0;
+            }
+        }
+        DC_current_index=m.DC.Left.size()-node_size;
+        for(int i=0;i<m.DC.Left.size();i++){
+            m.DC.Left[i].push_back(0.0);
+        }
+        v.resize(m.DC.Left.size()+1,0.0);
+        m.DC.Left.push_back(v);
+        m.DC.Right.push_back({0.0,0,DC_current_index});
+        m.DC.Left[m.DC.Left.size()-1][node1.index]+=1.0;
+        m.DC.Left[m.DC.Left.size()-1][node2.index]-=1.0;
+        m.DC.Left[m.DC.Left.size()-1][cntr_node1.index]-=getValue();
+        m.DC.Left[m.DC.Left.size()-1][cntr_node2.index]+=getValue();
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][m.DC.Left[i].size()-1]-=1.0;
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Left[i][m.DC.Left[i].size()-1]+=1.0;
+            }
+        }
+        TRAN_current_index=m.TRAN.Left.size()-node_size;
+        for(int i=0;i<m.TRAN.Left.size();i++){
+            m.TRAN.Left[i].push_back(0.0);
+        }
+        v.resize(m.TRAN.Left.size()+1,0.0);
+        m.TRAN.Left.push_back(v);
+        m.TRAN.Right.push_back({getValue(),0,TRAN_current_index});
+        m.TRAN.Left[m.TRAN.Left.size()-1][node1.index]+=1.0;
+        m.TRAN.Left[m.TRAN.Left.size()-1][node2.index]-=1.0;
+        m.TRAN.Left[m.TRAN.Left.size()-1][cntr_node1.index]-=getValue();
+        m.TRAN.Left[m.TRAN.Left.size()-1][cntr_node2.index]+=getValue();
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][m.TRAN.Left[i].size()-1]-=1.0;
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][m.TRAN.Left[i].size()-1]+=1.0;
+            }
+        }
+    }
     void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class I_v : public CurrentSource{
 public:
     Node cntr_node1,cntr_node2;
     I_v(string t,string n, string v,Node cn1,Node cn2): CurrentSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
-    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][cntr_node1.index]-=getValue();
+                m.Primary_TRAN.Left[i][cntr_node2.index]+=getValue();
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][cntr_node1.index]+=getValue();
+                m.Primary_TRAN.Left[i][cntr_node2.index]-=getValue();
+            }
+        }
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][cntr_node1.index]-=getValue();
+                m.TRAN.Left[i][cntr_node2.index]+=getValue();
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][cntr_node1.index]+=getValue();
+                m.TRAN.Left[i][cntr_node2.index]-=getValue();
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][cntr_node1.index]-=getValue();
+                m.DC.Left[i][cntr_node2.index]+=getValue();
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Left[i][cntr_node1.index]+=getValue();
+                m.DC.Left[i][cntr_node2.index]-=getValue();
+            }
+        }
+    }
+    void Delete_Equation(Matrix_solve m,int node_size) override{}
+};
+class V_i : public VoltageSource{
+    int Cntr_TRAN_Current_index;
+    int Cntr_Primary_Current_index;
+    int Cntr_DC_Current_index;
+public:
+    string cntr_element;
+    void get_cntr_current_indexes(int t,int p,int d){
+        Cntr_TRAN_Current_index=t;
+        Cntr_Primary_Current_index=p;
+        Cntr_DC_Current_index=d;
+    }
+    V_i(string t,string n, string v,string ce): VoltageSource(t,n,v),cntr_element(ce){}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        Primary_current_index=m.Primary_TRAN.Left.size()-node_size;
+        for(int i=0;i<m.Primary_TRAN.Left.size();i++){
+            m.Primary_TRAN.Left[i].push_back(0.0);
+        }
+        vector<double> v(m.Primary_TRAN.Left.size()+1,0.0);
+        m.Primary_TRAN.Left.push_back(v);
+        m.Primary_TRAN.Right.push_back({0.0,0,Primary_current_index});
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node1.index]+=1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][node2.index]-=1.0;
+        m.Primary_TRAN.Left[m.Primary_TRAN.Left.size()-1][Cntr_Primary_Current_index+node_size]-=getValue();
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][m.Primary_TRAN.Left[i].size()-1]-=1.0;
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][m.Primary_TRAN.Left[i].size()-1]+=1.0;
+            }
+        }
+        DC_current_index=m.DC.Left.size()-node_size;
+        for(int i=0;i<m.DC.Left.size();i++){
+            m.DC.Left[i].push_back(0.0);
+        }
+        v.resize(m.DC.Left.size()+1,0.0);
+        m.DC.Left.push_back(v);
+        m.DC.Right.push_back({0.0,0,DC_current_index});
+        m.DC.Left[m.DC.Left.size()-1][node1.index]+=1.0;
+        m.DC.Left[m.DC.Left.size()-1][node2.index]-=1.0;
+        m.DC.Left[m.DC.Left.size()-1][Cntr_DC_Current_index+node_size]-=getValue();
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][m.DC.Left[i].size()-1]-=1.0;
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Left[i][m.DC.Left[i].size()-1]+=1.0;
+            }
+        }
+        TRAN_current_index=m.TRAN.Left.size()-node_size;
+        for(int i=0;i<m.TRAN.Left.size();i++){
+            m.TRAN.Left[i].push_back(0.0);
+        }
+        v.resize(m.TRAN.Left.size()+1,0.0);
+        m.TRAN.Left.push_back(v);
+        m.TRAN.Right.push_back({0.0,0,TRAN_current_index});
+        m.TRAN.Left[m.TRAN.Left.size()-1][node1.index]+=1.0;
+        m.TRAN.Left[m.TRAN.Left.size()-1][node2.index]-=1.0;
+        m.TRAN.Left[m.TRAN.Left.size()-1][Cntr_TRAN_Current_index+node_size]-=getValue();
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][m.TRAN.Left[i].size()-1]-=1.0;
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][m.TRAN.Left[i].size()-1]+=1.0;
+            }
+        }
+    }
     void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class I_i : public CurrentSource{
+    int Cntr_TRAN_Current_index;
+    int Cntr_Primary_Current_index;
+    int Cntr_DC_Current_index;
 public:
     string cntr_element;
-    int cntr_index;
+    void get_cntr_current_indexes(int t,int p,int d){
+        Cntr_TRAN_Current_index=t;
+        Cntr_Primary_Current_index=p;
+        Cntr_DC_Current_index=d;
+    }
     I_i(string t,string n, string v,string ce): CurrentSource(t,n,v),cntr_element(ce){}
-    void Add_Equation(Matrix_solve m,int node_size) override{}
+    void Add_Equation(Matrix_solve m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][Cntr_Primary_Current_index+node_size]-=getValue();
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][Cntr_Primary_Current_index+node_size]+=getValue();
+            }
+        }
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][Cntr_TRAN_Current_index+node_size]-=getValue();
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][Cntr_TRAN_Current_index+node_size]+=getValue();
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][Cntr_DC_Current_index+node_size]-=getValue();
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Left[i][Cntr_DC_Current_index+node_size]+=getValue();
+            }
+        }
+    }
     void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class Circuit{
@@ -489,6 +760,11 @@ public:
                 node[node_index].Add_Equation(matrixSolve);
             }
             node[node_index].is_ground=1;
+            node[node_index].Add_GND(matrixSolve);
+            for(int i=0;i<element.size();i++){
+                if(element[i]->node1.name==node[node_index].name)element[i]->node1=node[node_index];
+                if(element[i]->node2.name==node[node_index].name)element[i]->node2=node[node_index];
+            }
         }
         else {
             int node_index1=-1,node_index2=-1;
@@ -552,9 +828,27 @@ public:
             }
             else if(input_type=="add_VoltageSource->current"){
                 element.push_back(make_unique<V_i>("H",match[1],match[5],match[4]));
+                V_i* p = dynamic_cast<V_i*>(element[element.size()-1].get());
+                for(int i=0;i<element.size();i++){
+                    if(element[i]->getName()==match[4]){
+                        if(VoltageSource* p2=dynamic_cast<VoltageSource*>(element[i].get())){
+                            p->get_cntr_current_indexes(p2->TRAN_current_index,p2->Primary_current_index,p2->DC_current_index);
+                            break;
+                        }
+                    }
+                }
             }
             else if(input_type=="add_CurrentSource->current"){
                 element.push_back(make_unique<I_i>("F",match[1],match[5],match[4]));
+                I_i* p = dynamic_cast<I_i*>(element[element.size()-1].get());
+                for(int i=0;i<element.size();i++){
+                    if(element[i]->getName()==match[4]){
+                        if(VoltageSource* p2=dynamic_cast<VoltageSource*>(element[i].get())){
+                            p->get_cntr_current_indexes(p2->TRAN_current_index,p2->Primary_current_index,p2->DC_current_index);
+                            break;
+                        }
+                    }
+                }
             }
             if(input_type!="add_Diode") {
                 element[element.size() - 1]->Add_Equation(matrixSolve, node.size());
@@ -565,7 +859,9 @@ public:
     }
     void Delete(smatch match,string input_type){
         if(input_type=="delete_Element"){}
-        else if(input_type=="delete_GND"){}
+        else if(input_type=="delete_GND"){
+
+        }
     }
     void Rename(smatch match){
         for(int i=0;i<node.size();i++){
@@ -581,7 +877,7 @@ public:
             if(!matrixSolve.LUsetter(matrixSolve.TRAN))return false;
             TRAN_LU_Needs_Update=0;
         }
-        if(tspent==0)matrixSolve.Solve(matrixSolve.Primary_TRAN);
+        if(t_spent==0)matrixSolve.Solve(matrixSolve.Primary_TRAN);
     }
     bool Print_DC(smatch match,double final_value,int index){
         if(DC_LU_Needs_Update){
@@ -614,6 +910,8 @@ private:
             };
             if(regex_search(get,match,pattern[0])){
                 if(match[1].str()[0]!='R') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else if(stod(match[4])<=0) cout << "Error: Resistance cannot be zero or negative" << endl;
                 else {
                     bool new_element=1;
@@ -624,6 +922,8 @@ private:
             }
             else if(regex_search(get,match,pattern[1])){
                 if(match[1].str()[0]!='C') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else if(stod(match[4])<=0) cout << "Error: Capacitance cannot be zero or negative" << endl;
                 else {
                     bool new_element=1;
@@ -634,6 +934,8 @@ private:
             }
             else if(regex_search(get,match,pattern[2])){
                 if(match[1].str()[0]!='L') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else if(stod(match[4])<=0) cout << "Error: Inductance cannot be zero or negative" << endl;
                 else {
                     bool new_element=1;
@@ -643,8 +945,10 @@ private:
                 }
             }
             else if(regex_search(get,match,pattern[3])){
-                if(match[4]!="D"&&match[4]!="Z") cout << "Error: Model " << match[4] << " not found in library" << endl;
-                else if(match[1].str()[0]!='D') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                if(match[1].str()[0]!='D') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
+                else if(match[4]!="D"&&match[4]!="Z") cout << "Error: Model " << match[4] << " not found in library" << endl;
                 else {
                     bool new_element=1;
                     circuit.containsElementWithName(new_element,match[1]);
@@ -654,6 +958,7 @@ private:
             }
             else if(regex_search(get,match,pattern[4])){
                 if(match[1]!="GND") cout << "Error: Element GND not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
                 else{
                     bool first_ground=1;
                     for(int i=0;i<circuit.node.size();i++){
@@ -668,6 +973,8 @@ private:
             }
             else if(regex_search(get,match,pattern[5])){
                 if(match[1].str()[0]!='V') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else {
                     bool new_element=1;
                     circuit.containsElementWithName(new_element,match[1]);
@@ -677,6 +984,8 @@ private:
             }
             else if(regex_search(get,match,pattern[6])){
                 if(match[1].str()[0]!='I') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else {
                     bool new_element=1;
                     circuit.containsElementWithName(new_element,match[1]);
@@ -686,6 +995,8 @@ private:
             }
             else if(regex_search(get,match,pattern[7])){
                 if(match[1].str()[0]!='V') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else {
                     bool new_element=1;
                     circuit.containsElementWithName(new_element,match[1]);
@@ -695,6 +1006,8 @@ private:
             }
             else if(regex_search(get,match,pattern[8])){
                 if(match[1].str()[0]!='I') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else {
                     bool new_element=1;
                     circuit.containsElementWithName(new_element,match[1]);
@@ -704,6 +1017,10 @@ private:
             }
             else if(regex_search(get,match,pattern[9])){
                 if(match[1].str()[0]!='E') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
+                else if(match[4].str()[0]!='N'||match[4].length()==1)cout << "Error: Node " << match[4] << " not found in library" << endl;
+                else if(match[5].str()[0]!='N'||match[5].length()==1)cout << "Error: Node " << match[5] << " not found in library" << endl;
                 else {
                     bool new_element=1;
                     int exist_control=0;
@@ -724,6 +1041,10 @@ private:
             }
             else if(regex_search(get,match,pattern[10])){
                 if(match[1].str()[0]!='G') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
+                else if(match[4].str()[0]!='N'||match[4].length()==1)cout << "Error: Node " << match[4] << " not found in library" << endl;
+                else if(match[5].str()[0]!='N'||match[5].length()==1)cout << "Error: Node " << match[5] << " not found in library" << endl;
                 else {
                     bool new_element=1;
                     int exist_control=0;
@@ -744,10 +1065,17 @@ private:
             }
             else if(regex_search(get,match,pattern[11])){
                 if(match[1].str()[0]!='H') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else {
                     bool new_element=1,exist_control=0;
                     circuit.containsElementWithName(new_element,match[1]);
-                    circuit.containsElementWithName(exist_control,match[4]);
+                    for(int i=0;i<circuit.element.size();i++){
+                        if(circuit.element[i]->getType()=="V"&&circuit.element[i]->getName()==match[4]){
+                            exist_control=1;
+                            break;
+                        }
+                    }
                     if(!new_element) cout << "Error: VoltageSource " << match[1] << " already exists in the circuit" << endl;
                     else if(!exist_control) cout  << "Error: Dependent source has an undefined control element." << endl;
                     else input_type="add_VoltageSource->current";
@@ -755,11 +1083,18 @@ private:
             }
             else if(regex_search(get,match,pattern[12])){
                 if(match[1].str()[0]!='F') cout << "Error: Element " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else if(match[3].str()[0]!='N'||match[3].length()==1)cout << "Error: Node " << match[3] << " not found in library" << endl;
                 else {
                     bool new_element=1,exist_control=0;
                     circuit.containsElementWithName(new_element,match[1]);
-                    circuit.containsElementWithName(exist_control,match[4]);
-                    if(!new_element) cout << "Error: VoltageSource " << match[1] << " already exists in the circuit" << endl;
+                    for(int i=0;i<circuit.element.size();i++){
+                        if(circuit.element[i]->getType()=="V"&&circuit.element[i]->getName()==match[4]){
+                            exist_control=1;
+                            break;
+                        }
+                    }
+                    if(!new_element) cout << "Error: CurrentSource " << match[1] << " already exists in the circuit" << endl;
                     else if(!exist_control) cout  << "Error: Dependent source has an undefined control element." << endl;
                     else input_type="add_CurrentSource->current";
                 }
@@ -783,18 +1118,21 @@ private:
                 else input_type="delete_Element";
             }
             else if(regex_search(get,match,pattern[1])){
-                bool exist_element=0;
-                int index=-1;
-                for(int i=0;i<circuit.node.size();i++){
-                    if(circuit.node[i].name==match[1]){
-                        exist_element=1;
-                        index=i;
-                        break;
+                if(match[1].str()[0]!='N'||match[1].length()==1)cout << "Error: Node " << match[1] << " not found in library" << endl;
+                else{
+                    bool exist_element=0;
+                    int index=-1;
+                    for(int i=0;i<circuit.node.size();i++){
+                        if(circuit.node[i].name==match[1]){
+                            exist_element=1;
+                            index=i;
+                            break;
+                        }
                     }
+                    if(!exist_element) cout << "ERROR: Node " << match[1] << " does not exist in the circuit" << endl;
+                    else if(!circuit.node[index].is_ground)cout << "Error: Cannot delete GND; node " << match[1] << " is not GND" << endl;
+                    else input_type="delete_GND";
                 }
-                if(!exist_element) cout << "ERROR: Node " << match[1] << " does not exist in the circuit" << endl;
-                else if(!circuit.node[index].is_ground)cout << "Error: Cannot delete GND; node " << match[1] << " is not GND" << endl;
-                else input_type="delete_GND";
             }
             else cout << "Error: Syntax error" << endl;
         }
@@ -815,14 +1153,18 @@ private:
         }
         else if(regex_match(get,regex (R"(\s*rename\b.*)"))){
             if(regex_search(get,match,regex (R"(^\s*rename\s+node\s+(\w+)\s+(\w+)\s*$)"))){
-                bool exist_node=0,new_node=1;
-                for(int i=0;i<circuit.node.size();i++){
-                    if(circuit.node[i].name==match[1])exist_node=1;
-                    if(circuit.node[i].name==match[2])new_node=0;
+                if(match[1].str()[0]!='N'||match[1].length()==1)cout << "Error: Node " << match[1] << " not found in library" << endl;
+                else if(match[2].str()[0]!='N'||match[2].length()==1)cout << "Error: Node " << match[2] << " not found in library" << endl;
+                else{
+                    bool exist_node=0,new_node=1;
+                    for(int i=0;i<circuit.node.size();i++){
+                        if(circuit.node[i].name==match[1])exist_node=1;
+                        if(circuit.node[i].name==match[2])new_node=0;
+                    }
+                    if(!exist_node) cout << "ERROR: Node " << match[1] << " does not exist in the circuit" << endl;
+                    else if(!new_node) cout << "ERROR: Node name " << match[2] << " already exists" << endl;
+                    else input_type="rename_node";
                 }
-                if(!exist_node) cout << "ERROR: Node " << match[1] << " does not exist in the circuit" << endl;
-                else if(!new_node) cout << "ERROR: Node name " << match[2] << " already exists" << endl;
-                else input_type="rename_node";
             }
             else cout << "ERROR: Invalid syntax - correct format:" << endl << "rename node <old_name> <new_name>" << endl;
         }
