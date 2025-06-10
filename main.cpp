@@ -11,11 +11,11 @@ struct Right_Matrix{
     int index;
 };
 struct Matrices{
-    vector<vector<double>> Left;
-    vector<Right_Matrix> Right;
-    vector<vector<double>> L_Left;
-    vector<vector<double>> U_Left;
-    vector<double> Answer;
+    vector<vector<double>> Left={};
+    vector<Right_Matrix> Right={};
+    vector<vector<double>> L_Left={};
+    vector<vector<double>> U_Left={};
+    vector<double> Answer={};
 };
 class Matrix_solve{
 public:
@@ -108,22 +108,18 @@ public:
     string name;
     int index;
     bool is_ground=0;
-    void Add_Equation(Matrix_solve m){
+    void Add_Equation(Matrix_solve &m){
         vector<double> add={};
         for(int i=0;i<m.Primary_TRAN.Left.size();i++) m.Primary_TRAN.Left[i].insert(m.Primary_TRAN.Left[i].begin()+index,0.0);
         add.resize(m.Primary_TRAN.Left.size()+1,0.0);
         m.Primary_TRAN.Left.push_back(add);
         m.Primary_TRAN.Right.push_back({0.0,1,index});
-        for(int i=0;i<m.TRAN.Left.size();i++) m.TRAN.Left[i].insert(m.TRAN.Left[i].begin()+index,0.0);
-        add.resize(m.TRAN.Left.size()+1,0.0);
-        m.TRAN.Left.push_back(add);
-        m.TRAN.Right.push_back({0.0,1,index});
         for(int i=0;i<m.DC.Left.size();i++) m.DC.Left[i].insert(m.DC.Left[i].begin()+index,0.0);
         add.resize(m.DC.Left.size()+1,0.0);
         m.DC.Left.push_back(add);
         m.DC.Right.push_back({0.0,1,index});
     }
-    void Add_GND(Matrix_solve m){
+    void Add_GND(Matrix_solve &m){
         for(int i=0;i<m.Primary_TRAN.Right.size();i++){
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==index){
                 for(int j=0;j<m.Primary_TRAN.Left[i].size();j++){
@@ -152,8 +148,74 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m){}
-    void Delete_GND(Matrix_solve m){}
+    void Delete_Equation(Matrix_solve &m){
+        //Primary_TRAN
+        for(int i=0;i<m.Primary_TRAN.Left.size();i++){
+            m.Primary_TRAN.Left[i].erase(m.Primary_TRAN.Left[i].begin()+index);
+        }
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==index){
+                m.Primary_TRAN.Left.erase(m.Primary_TRAN.Left.begin()+i);
+                m.Primary_TRAN.Right.erase(m.Primary_TRAN.Right.begin()+i);
+                break;
+            }
+        }
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index>index){
+                m.Primary_TRAN.Right[i].index--;
+            }
+        }
+        //TRAN
+        for(int i=0;i<m.TRAN.Left.size();i++){
+            m.TRAN.Left[i].erase(m.TRAN.Left[i].begin()+index);
+        }
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==index){
+                m.TRAN.Left.erase(m.TRAN.Left.begin()+i);
+                m.TRAN.Right.erase(m.TRAN.Right.begin()+i);
+                break;
+            }
+        }
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index>index){
+                m.TRAN.Right[i].index--;
+            }
+        }
+        //DC
+        for(int i=0;i<m.DC.Left.size();i++){
+            m.DC.Left[i].erase(m.DC.Left[i].begin()+index);
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==index){
+                m.DC.Left.erase(m.DC.Left.begin()+i);
+                m.DC.Right.erase(m.DC.Right.begin()+i);
+                break;
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index>index){
+                m.DC.Right[i].index--;
+            }
+        }
+
+    }
+    void Delete_GND(Matrix_solve &m){
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==index){
+                m.Primary_TRAN.Left[i][index]=0.0;
+            }
+        }
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==index){
+                m.TRAN.Left[i][index]=0.0;
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==index){
+                m.DC.Left[i][index]=0.0;
+            }
+        }
+    }
 };
 class Element{
 protected:
@@ -161,10 +223,14 @@ protected:
     string name;
     string value;
 public:
+    int TRAN_current_index=0;
+    int Primary_current_index=0;
+    int DC_current_index=0;
     Node node1,node2;
     Element(string t,string n, string v) : type(t),name(n),value(v){}
-    virtual void Add_Equation(Matrix_solve m,int node_size)=0;
-    virtual void Delete_Equation(Matrix_solve m,int node_size)=0;
+    virtual void Add_Equation(Matrix_solve &m,int node_size)=0;
+    virtual void Delete_Equation(Matrix_solve &m,int node_size)=0;
+    virtual void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep)=0;
     string getName(){
         return name;
     }
@@ -190,7 +256,7 @@ public:
 class Resistor : public Element{
 public:
     Resistor(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         for(int i=0;i<m.Primary_TRAN.Right.size();i++){
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
                 m.Primary_TRAN.Left[i][node1.index]-=1.0/getValue();
@@ -199,16 +265,6 @@ public:
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
                 m.Primary_TRAN.Left[i][node2.index]-=1.0/getValue();
                 m.Primary_TRAN.Left[i][node1.index]+=1.0/getValue();
-            }
-        }
-        for(int i=0;i<m.TRAN.Right.size();i++){
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
-                m.TRAN.Left[i][node1.index]-=1.0/getValue();
-                m.TRAN.Left[i][node2.index]+=1.0/getValue();
-            }
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
-                m.TRAN.Left[i][node2.index]-=1.0/getValue();
-                m.TRAN.Left[i][node1.index]+=1.0/getValue();
             }
         }
         for(int i=0;i<m.DC.Right.size();i++){
@@ -222,14 +278,46 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][node1.index]+=1.0/getValue();
+                m.Primary_TRAN.Left[i][node2.index]-=1.0/getValue();
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][node2.index]+=1.0/getValue();
+                m.Primary_TRAN.Left[i][node1.index]-=1.0/getValue();
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][node1.index]+=1.0/getValue();
+                m.DC.Left[i][node2.index]-=1.0/getValue();
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node1.is_ground){
+                m.DC.Left[i][node2.index]+=1.0/getValue();
+                m.DC.Left[i][node1.index]-=1.0/getValue();
+            }
+        }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][node1.index]-=1.0/getValue();
+                m.TRAN.Left[i][node2.index]+=1.0/getValue();
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][node2.index]-=1.0/getValue();
+                m.TRAN.Left[i][node1.index]+=1.0/getValue();
+            }
+        }
+    }
 };
 class Capacitor : public Element{
 public:
-    int Primary_current_index;
     double previous_current,previous_voltage;
     Capacitor(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         Primary_current_index=m.Primary_TRAN.Left.size()-node_size;
         for(int i=0;i<m.Primary_TRAN.Left.size();i++){
             m.Primary_TRAN.Left[i].push_back(0.0);
@@ -248,14 +336,41 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Left.size();i++){
+            m.Primary_TRAN.Left[i].erase(m.Primary_TRAN.Left[i].begin()+Primary_current_index+node_size);
+        }
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(!m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==Primary_current_index){
+                m.Primary_TRAN.Right.erase(m.Primary_TRAN.Right.begin()+i);
+                m.Primary_TRAN.Left.erase(m.Primary_TRAN.Left.begin()+i);
+                break;
+            }
+        }
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(!m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index>Primary_current_index)m.Primary_TRAN.Right[i].index--;
+        }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][node1.index]-=2*getValue()/tstep;
+                m.TRAN.Left[i][node2.index]+=2*getValue()/tstep;
+                m.TRAN.Right[i].value-=(2*getValue()*previous_voltage/tstep+previous_current);
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][node1.index]+=2*getValue()/tstep;
+                m.TRAN.Left[i][node2.index]-=2*getValue()/tstep;
+                m.TRAN.Right[i].value+=(2*getValue()*previous_voltage/tstep+previous_current);
+            }
+        }
+    }
 };
 class Inductor : public Element{
 public:
-    int DC_current_index;
     double previous_current,previous_voltage;
     Inductor(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         DC_current_index=m.DC.Left.size()-node_size;
         for(int i=0;i<m.DC.Left.size();i++){
             m.DC.Left[i].push_back(0.0);
@@ -274,22 +389,49 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{
+        for(int i=0;i<m.DC.Left.size();i++){
+            m.DC.Left[i].push_back(0.0);
+            m.DC.Left[i].erase(m.DC.Left[i].begin()+DC_current_index+node_size);
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(!m.DC.Right[i].is_node&&m.DC.Right[i].index==DC_current_index){
+                m.DC.Right.erase(m.DC.Right.begin()+i);
+                m.DC.Left.erase(m.DC.Left.begin()+i);
+                break;
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(!m.DC.Right[i].is_node&&m.DC.Right[i].index>DC_current_index)m.DC.Right[i].index--;
+        }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][node1.index]-=tstep/(2*getValue());
+                m.TRAN.Left[i][node2.index]+=tstep/(2*getValue());
+                m.TRAN.Right[i].value-=(tstep*previous_voltage/(2*getValue())+previous_current);
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][node1.index]+=tstep/(2*getValue());
+                m.TRAN.Left[i][node2.index]-=tstep/(2*getValue());
+                m.TRAN.Right[i].value+=(tstep*previous_voltage/(2*getValue())+previous_current);
+            }
+        }
+    }
 };
 class Diode : public Element{
 public:
     int current_index;
     Diode(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m,int node_size) override{}
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Add_Equation(Matrix_solve &m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{}
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{}
 };
 class VoltageSource : public Element{
 public:
-    int TRAN_current_index;
-    int Primary_current_index;
-    int DC_current_index;
     VoltageSource(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         Primary_current_index=m.Primary_TRAN.Left.size()-node_size;
         for(int i=0;i<m.Primary_TRAN.Left.size();i++){
             m.Primary_TRAN.Left[i].push_back(0.0);
@@ -324,11 +466,43 @@ public:
                 m.DC.Left[i][m.DC.Left[i].size()-1]+=1.0;
             }
         }
+    }
+    void Delete_Equation(Matrix_solve &m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Left.size();i++){
+            m.Primary_TRAN.Left[i].erase(m.Primary_TRAN.Left[i].begin()+Primary_current_index+node_size);
+        }
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(!m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==Primary_current_index){
+                m.Primary_TRAN.Right.erase(m.Primary_TRAN.Right.begin()+i);
+                m.Primary_TRAN.Left.erase(m.Primary_TRAN.Left.begin()+i);
+                break;
+            }
+        }
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(!m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index>Primary_current_index)m.Primary_TRAN.Right[i].index--;
+        }
+
+        for(int i=0;i<m.DC.Left.size();i++){
+            m.DC.Left[i].push_back(0.0);
+            m.DC.Left[i].erase(m.DC.Left[i].begin()+DC_current_index+node_size);
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(!m.DC.Right[i].is_node&&m.DC.Right[i].index==DC_current_index){
+                m.DC.Right.erase(m.DC.Right.begin()+i);
+                m.DC.Left.erase(m.DC.Left.begin()+i);
+                break;
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(!m.DC.Right[i].is_node&&m.DC.Right[i].index>DC_current_index)m.DC.Right[i].index--;
+        }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
         TRAN_current_index=m.TRAN.Left.size()-node_size;
         for(int i=0;i<m.TRAN.Left.size();i++){
             m.TRAN.Left[i].push_back(0.0);
         }
-        v.resize(m.TRAN.Left.size()+1,0.0);
+        vector<double> v(m.TRAN.Left.size()+1,0.0);
         m.TRAN.Left.push_back(v);
         m.TRAN.Right.push_back({getValue(),0,TRAN_current_index});
         m.TRAN.Left[m.TRAN.Left.size()-1][node1.index]+=1.0;
@@ -342,26 +516,17 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class CurrentSource : public Element{
 public:
     CurrentSource(string t,string n, string v) : Element(t,n,v){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         for(int i=0;i<m.Primary_TRAN.Right.size();i++){
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
                 m.Primary_TRAN.Right[i].value+=getValue();
             }
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
                 m.Primary_TRAN.Right[i].value-=getValue();
-            }
-        }
-        for(int i=0;i<m.TRAN.Right.size();i++){
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
-                m.TRAN.Right[i].value+=getValue();
-            }
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
-                m.TRAN.Right[i].value-=getValue();
             }
         }
         for(int i=0;i<m.DC.Right.size();i++){
@@ -373,7 +538,34 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Right[i].value-=getValue();
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Right[i].value+=getValue();
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Right[i].value-=getValue();
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Right[i].value+=getValue();
+            }
+        }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Right[i].value+=getValue();
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Right[i].value-=getValue();
+            }
+        }
+    }
 };
 class Vsin : public VoltageSource{
 private:
@@ -388,7 +580,7 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << value << ", " << Vamplitude << ", " << Frequency << ")" << endl;
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{}
 };
 class Isin : public CurrentSource{
 private:
@@ -403,13 +595,13 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << value << ", " << Iamplitude << ", " << Frequency << ")" << endl;
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{}
 };
 class V_v : public VoltageSource{
 public:
     Node  cntr_node1,cntr_node2;
     V_v(string t,string n, string v,Node cn1,Node cn2): VoltageSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         Primary_current_index=m.Primary_TRAN.Left.size()-node_size;
         for(int i=0;i<m.Primary_TRAN.Left.size();i++){
             m.Primary_TRAN.Left[i].push_back(0.0);
@@ -448,11 +640,13 @@ public:
                 m.DC.Left[i][m.DC.Left[i].size()-1]+=1.0;
             }
         }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
         TRAN_current_index=m.TRAN.Left.size()-node_size;
         for(int i=0;i<m.TRAN.Left.size();i++){
             m.TRAN.Left[i].push_back(0.0);
         }
-        v.resize(m.TRAN.Left.size()+1,0.0);
+        vector<double> v(m.TRAN.Left.size()+1,0.0);
         m.TRAN.Left.push_back(v);
         m.TRAN.Right.push_back({getValue(),0,TRAN_current_index});
         m.TRAN.Left[m.TRAN.Left.size()-1][node1.index]+=1.0;
@@ -468,13 +662,12 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class I_v : public CurrentSource{
 public:
     Node cntr_node1,cntr_node2;
     I_v(string t,string n, string v,Node cn1,Node cn2): CurrentSource(t,n,v),cntr_node1(cn1),cntr_node2(cn2){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         for(int i=0;i<m.Primary_TRAN.Right.size();i++){
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
                 m.Primary_TRAN.Left[i][cntr_node1.index]-=getValue();
@@ -483,16 +676,6 @@ public:
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
                 m.Primary_TRAN.Left[i][cntr_node1.index]+=getValue();
                 m.Primary_TRAN.Left[i][cntr_node2.index]-=getValue();
-            }
-        }
-        for(int i=0;i<m.TRAN.Right.size();i++){
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
-                m.TRAN.Left[i][cntr_node1.index]-=getValue();
-                m.TRAN.Left[i][cntr_node2.index]+=getValue();
-            }
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
-                m.TRAN.Left[i][cntr_node1.index]+=getValue();
-                m.TRAN.Left[i][cntr_node2.index]-=getValue();
             }
         }
         for(int i=0;i<m.DC.Right.size();i++){
@@ -506,7 +689,40 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][cntr_node1.index]+=getValue();
+                m.Primary_TRAN.Left[i][cntr_node2.index]-=getValue();
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][cntr_node1.index]-=getValue();
+                m.Primary_TRAN.Left[i][cntr_node2.index]+=getValue();
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][cntr_node1.index]+=getValue();
+                m.DC.Left[i][cntr_node2.index]-=getValue();
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Left[i][cntr_node1.index]-=getValue();
+                m.DC.Left[i][cntr_node2.index]+=getValue();
+            }
+        }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][cntr_node1.index]-=getValue();
+                m.TRAN.Left[i][cntr_node2.index]+=getValue();
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][cntr_node1.index]+=getValue();
+                m.TRAN.Left[i][cntr_node2.index]-=getValue();
+            }
+        }
+    }
 };
 class V_i : public VoltageSource{
     int Cntr_TRAN_Current_index;
@@ -520,7 +736,7 @@ public:
         Cntr_DC_Current_index=d;
     }
     V_i(string t,string n, string v,string ce): VoltageSource(t,n,v),cntr_element(ce){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         Primary_current_index=m.Primary_TRAN.Left.size()-node_size;
         for(int i=0;i<m.Primary_TRAN.Left.size();i++){
             m.Primary_TRAN.Left[i].push_back(0.0);
@@ -557,11 +773,13 @@ public:
                 m.DC.Left[i][m.DC.Left[i].size()-1]+=1.0;
             }
         }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
         TRAN_current_index=m.TRAN.Left.size()-node_size;
         for(int i=0;i<m.TRAN.Left.size();i++){
             m.TRAN.Left[i].push_back(0.0);
         }
-        v.resize(m.TRAN.Left.size()+1,0.0);
+        vector<double> v(m.TRAN.Left.size()+1,0.0);
         m.TRAN.Left.push_back(v);
         m.TRAN.Right.push_back({0.0,0,TRAN_current_index});
         m.TRAN.Left[m.TRAN.Left.size()-1][node1.index]+=1.0;
@@ -576,7 +794,6 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
 };
 class I_i : public CurrentSource{
     int Cntr_TRAN_Current_index;
@@ -590,21 +807,13 @@ public:
         Cntr_DC_Current_index=d;
     }
     I_i(string t,string n, string v,string ce): CurrentSource(t,n,v),cntr_element(ce){}
-    void Add_Equation(Matrix_solve m,int node_size) override{
+    void Add_Equation(Matrix_solve &m,int node_size) override{
         for(int i=0;i<m.Primary_TRAN.Right.size();i++){
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
                 m.Primary_TRAN.Left[i][Cntr_Primary_Current_index+node_size]-=getValue();
             }
             if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
                 m.Primary_TRAN.Left[i][Cntr_Primary_Current_index+node_size]+=getValue();
-            }
-        }
-        for(int i=0;i<m.TRAN.Right.size();i++){
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
-                m.TRAN.Left[i][Cntr_TRAN_Current_index+node_size]-=getValue();
-            }
-            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
-                m.TRAN.Left[i][Cntr_TRAN_Current_index+node_size]+=getValue();
             }
         }
         for(int i=0;i<m.DC.Right.size();i++){
@@ -616,7 +825,34 @@ public:
             }
         }
     }
-    void Delete_Equation(Matrix_solve m,int node_size) override{}
+    void Delete_Equation(Matrix_solve &m,int node_size) override{
+        for(int i=0;i<m.Primary_TRAN.Right.size();i++){
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.Primary_TRAN.Left[i][Cntr_Primary_Current_index+node_size]+=getValue();
+            }
+            if(m.Primary_TRAN.Right[i].is_node&&m.Primary_TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.Primary_TRAN.Left[i][Cntr_Primary_Current_index+node_size]-=getValue();
+            }
+        }
+        for(int i=0;i<m.DC.Right.size();i++){
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node1.index&&!node1.is_ground){
+                m.DC.Left[i][Cntr_DC_Current_index+node_size]+=getValue();
+            }
+            if(m.DC.Right[i].is_node&&m.DC.Right[i].index==node2.index&&!node2.is_ground){
+                m.DC.Left[i][Cntr_DC_Current_index+node_size]-=getValue();
+            }
+        }
+    }
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][Cntr_TRAN_Current_index+node_size]-=getValue();
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][Cntr_TRAN_Current_index+node_size]+=getValue();
+            }
+        }
+    }
 };
 class Circuit{
     double tstep,tspent;
@@ -858,9 +1094,105 @@ public:
         }
     }
     void Delete(smatch match,string input_type){
-        if(input_type=="delete_Element"){}
+        if(input_type=="delete_Element"){
+            int node_index1=0,node_index2=0;
+            for(int i=0;i<element.size();i++){
+                if(element[i]->getName()==match[1]){
+                    node_index1=element[i]->node1.index;
+                    node_index2=element[i]->node2.index;
+                    element[i]->Delete_Equation(matrixSolve,node.size());
+                    for(int j=0;j<element.size();j++){
+                        if(j!=i){
+                            if(element[i]->getType()=="C"){
+                                if(element[j]->Primary_current_index>element[i]->Primary_current_index)element[j]->Primary_current_index--;
+                            }
+                            else if(element[i]->getType()=="L"){
+                                if(element[j]->DC_current_index>element[i]->DC_current_index)element[j]->DC_current_index--;
+                            }
+                            else if(element[i]->getType()=="V"||element[i]->getType()=="Vsin"||element[i]->getType()=="E"||element[i]->getType()=="H"){
+                                if(element[j]->Primary_current_index>element[i]->Primary_current_index)element[j]->Primary_current_index--;
+                                if(element[j]->DC_current_index>element[i]->DC_current_index)element[j]->DC_current_index--;
+                                if(element[j]->TRAN_current_index>element[i]->TRAN_current_index)element[j]->TRAN_current_index--;
+                            }
+                        }
+                    }
+                    element.erase(element.begin()+i);
+                    for(int j=0;j<element.size();j++){
+                        if(V_i* p = dynamic_cast<V_i*>(element[j].get())){
+                            for(int k=0;k<element.size();k++){
+                                if(p->cntr_element==element[k]->getName()){
+                                    p->get_cntr_current_indexes(element[k]->TRAN_current_index,element[k]->Primary_current_index,element[k]->DC_current_index);
+                                    break;
+                                }
+                            }
+                        }
+                        if(I_i* p = dynamic_cast<I_i*>(element[j].get())){
+                            for(int k=0;k<element.size();k++){
+                                if(p->cntr_element==element[k]->getName()){
+                                    p->get_cntr_current_indexes(element[k]->TRAN_current_index,element[k]->Primary_current_index,element[k]->DC_current_index);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    bool is_excess_node=1,is_excess_node2=1;
+                    for(int j=0;j<element.size();j++){
+                        if(element[j]->node1.index==node_index1||element[j]->node2.index==node_index1) is_excess_node=0;
+                        if(element[j]->node1.index==node_index2||element[j]->node2.index==node_index2) is_excess_node2=0;
+                    }
+                    if(is_excess_node){
+                        node[node_index1].Delete_Equation(matrixSolve);
+                        node.erase(node.begin()+node_index1);
+                        for(int j=0;j<node.size();j++){
+                            node[j].index=j;
+                            for(int k=0;k<element.size();k++){
+                                if(element[k]->node1.name==node[j].name)element[k]->node1=node[j];
+                                if(element[k]->node2.name==node[j].name)element[k]->node2=node[j];
+                            }
+                        }
+                        if(node_index2>node_index1)node_index2--;
+                    }
+                    if(is_excess_node2){
+                        node[node_index2].Delete_Equation(matrixSolve);
+                        node.erase(node.begin()+node_index2);
+                        for(int j=0;j<node.size();j++){
+                            node[j].index=j;
+                            for(int k=0;k<element.size();k++){
+                                if(element[k]->node1.name==node[j].name)element[k]->node1=node[j];
+                                if(element[k]->node2.name==node[j].name)element[k]->node2=node[j];
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
         else if(input_type=="delete_GND"){
-
+            for(int i=0;i<node.size();i++){
+                if(node[i].name==match[1]){
+                    node[i].is_ground=0;
+                    node[i].Delete_GND(matrixSolve);
+                    bool is_excess_node=1;
+                    for(int j=0;j<element.size();j++){
+                        if(element[j]->node1.name==match[1]||element[j]->node2.name==match[1]){
+                            is_excess_node=0;
+                            element[j]->Add_Equation(matrixSolve,node.size());
+                        }
+                    }
+                    if(is_excess_node){
+                        node[i].Delete_Equation(matrixSolve);
+                        node.erase(node.begin()+i);
+                        for(int j=0;j<node.size();j++){
+                            node[j].index=j;
+                            for(int k=0;k<element.size();k++){
+                                if(element[k]->node1.name==node[j].name)element[k]->node1=node[j];
+                                if(element[k]->node2.name==node[j].name)element[k]->node2=node[j];
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
         }
     }
     void Rename(smatch match){
