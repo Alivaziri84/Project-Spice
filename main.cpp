@@ -223,6 +223,7 @@ protected:
     string name;
     string value;
 public:
+    int Right_index1=0,Right_index2=0;
     int TRAN_current_index=0;
     int Primary_current_index=0;
     int DC_current_index=0;
@@ -580,7 +581,25 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << value << ", " << Vamplitude << ", " << Frequency << ")" << endl;
     }
-    void Delete_Equation(Matrix_solve &m,int node_size) override{}
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
+        TRAN_current_index=m.TRAN.Left.size()-node_size;
+        for(int i=0;i<m.TRAN.Left.size();i++){
+            m.TRAN.Left[i].push_back(0.0);
+        }
+        vector<double> v(m.TRAN.Left.size()+1,0.0);
+        m.TRAN.Left.push_back(v);
+        m.TRAN.Right.push_back({get_voltage(tstep),0,TRAN_current_index});
+        m.TRAN.Left[m.TRAN.Left.size()-1][node1.index]+=1.0;
+        m.TRAN.Left[m.TRAN.Left.size()-1][node2.index]-=1.0;
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Left[i][m.TRAN.Left[i].size()-1]-=1.0;
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Left[i][m.TRAN.Left[i].size()-1]+=1.0;
+            }
+        }
+    }
 };
 class Isin : public CurrentSource{
 private:
@@ -595,7 +614,16 @@ public:
         cout << " _ Nodes : " << node1.name << ", " << node2.name;
         cout << " Type : " << "SIN(" << value << ", " << Iamplitude << ", " << Frequency << ")" << endl;
     }
-    void Delete_Equation(Matrix_solve &m,int node_size) override{}
+    void Add_TRAN_Equation(Matrix_solve &m,int node_size,double tstep) override{
+        for(int i=0;i<m.TRAN.Right.size();i++){
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node1.index&&!node1.is_ground){
+                m.TRAN.Right[i].value+= get_current(tstep);
+            }
+            if(m.TRAN.Right[i].is_node&&m.TRAN.Right[i].index==node2.index&&!node2.is_ground){
+                m.TRAN.Right[i].value-=get_current(tstep);
+            }
+        }
+    }
 };
 class V_v : public VoltageSource{
 public:
@@ -855,8 +883,7 @@ public:
     }
 };
 class Circuit{
-    double tstep,tspent;
-    bool TRAN_LU_Needs_Update = 1,DC_LU_Needs_Update = 1;
+    bool has_changed_DC_matrix=1;
 public:
     Matrix_solve matrixSolve;
     vector<unique_ptr<Element>> element={};
@@ -985,6 +1012,7 @@ public:
         }
     }
     void Add(smatch match,string input_type){
+        has_changed_DC_matrix=1;
         if(input_type=="add_GND"){
             int node_index=-1;
             for(int i=0;i<node.size();i++){
@@ -1094,6 +1122,7 @@ public:
         }
     }
     void Delete(smatch match,string input_type){
+        has_changed_DC_matrix=1;
         if(input_type=="delete_Element"){
             int node_index1=0,node_index2=0;
             for(int i=0;i<element.size();i++){
@@ -1198,23 +1227,252 @@ public:
     void Rename(smatch match){
         for(int i=0;i<node.size();i++){
             if(node[i].name==match[1]){
+                for(int j=0;j<element.size();j++){
+                    if(element[j]->node1.name==match[1])element[j]->node1.name=match[2];
+                    if(element[j]->node2.name==match[1])element[j]->node2.name=match[2];
+                    if(V_v* p=dynamic_cast<V_v*>(element[j].get())){
+                        if(p->cntr_node1.name==match[1])p->cntr_node1.name=match[2];
+                        if(p->cntr_node2.name==match[1])p->cntr_node2.name=match[2];
+                    }
+                    if(I_v* p=dynamic_cast<I_v*>(element[j].get())){
+                        if(p->cntr_node1.name==match[1])p->cntr_node1.name=match[2];
+                        if(p->cntr_node2.name==match[1])p->cntr_node2.name=match[2];
+                    }
+                }
                 node[i].name=match[2];
                 break;
             }
         }
     }
-    bool Print_TRAN(smatch match,double t_spent){
-        if(TRAN_LU_Needs_Update){
-            if(!matrixSolve.LUsetter(matrixSolve.Primary_TRAN))return false;
-            if(!matrixSolve.LUsetter(matrixSolve.TRAN))return false;
-            TRAN_LU_Needs_Update=0;
+    bool Print_TRAN(smatch match,double tspent){
+        double tstep,tstart,tstop;
+        tstep= stod(match[3]);
+        tstop= stod(match[2]);
+        string s_tstart=match[1];
+        if(s_tstart.length()==0)s_tstart.push_back('0');
+        tstart= stod(s_tstart);
+        if(tstart!=0&&tspent==tstart){
+            if(matrixSolve.LUsetter(matrixSolve.Primary_TRAN)){
+                matrixSolve.Solve(matrixSolve.Primary_TRAN);
+                matrixSolve.TRAN.Left.clear();
+                matrixSolve.TRAN.Right.clear();
+                vector<double> v(node.size(),0.0);
+                matrixSolve.TRAN.Left.resize(node.size(),v);
+                matrixSolve.TRAN.Right.resize(node.size());
+                for(int i=0;i<node.size();i++){
+                    matrixSolve.TRAN.Right[i].is_node= true;
+                    matrixSolve.TRAN.Right[i].value=0.0;
+                    matrixSolve.TRAN.Right[i].index=i;
+                    if(node[i].is_ground)matrixSolve.TRAN.Left[i][i]+=1.0;
+                }
+                for(int i=0;i<element.size();i++){
+                    if(Capacitor* p=dynamic_cast<Capacitor*>(element[i].get())){
+                        p->previous_current= element_current_shower(i,matrixSolve.Primary_TRAN.Answer,0,tstep,"TRAN");
+                        p->previous_voltage=matrixSolve.Primary_TRAN.Answer[p->node1.index]-matrixSolve.Primary_TRAN.Answer[p->node2.index];
+                    }
+                    else if(Inductor* p=dynamic_cast<Inductor*>(element[i].get())){
+                        p->previous_current=0;
+                        p->previous_voltage=matrixSolve.Primary_TRAN.Answer[p->node1.index]-matrixSolve.Primary_TRAN.Answer[p->node2.index];
+                    }
+                    element[i]->Add_TRAN_Equation(matrixSolve,node.size(),tstep);
+                }
+                if(matrixSolve.LUsetter(matrixSolve.TRAN)){
+                    for(int i=0;i<element.size();i++){
+                        if(Capacitor* p=dynamic_cast<Capacitor*>(element[i].get())){
+                            for(int j=0;j<matrixSolve.TRAN.Right.size();j++){
+                                if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node1.index)p->Right_index1=j;
+                                if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node2.index)p->Right_index2=j;
+                            }
+                        }
+                        else if(Inductor* p=dynamic_cast<Inductor*>(element[i].get())){
+                            for(int j=0;j<matrixSolve.TRAN.Right.size();j++){
+                                if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node1.index)p->Right_index1=j;
+                                if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node2.index)p->Right_index2=j;
+                            }
+                        }
+                        else if(Vsin* p=dynamic_cast<Vsin*>(element[i].get())){
+                            for(int j=0;j<matrixSolve.TRAN.Right.size();j++){
+                                if(!matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->TRAN_current_index)p->Right_index1=j;
+                            }
+                        }
+                        else if(Isin* p=dynamic_cast<Isin*>(element[i].get())){
+                            for(int j=0;j<matrixSolve.TRAN.Right.size();j++){
+                                if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node1.index)p->Right_index1=j;
+                                if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node2.index)p->Right_index2=j;
+                            }
+                        }
+                    }
+                }
+                else return false;
+            }
+            else return false;
+            int number=tstart/tstep;
+            for(int j=1;j<=number;j++){
+                double tspent2=double(j)*tstep;
+                matrixSolve.Solve(matrixSolve.TRAN);
+                for(int i=0;i<element.size();i++){
+                    if(Capacitor* p=dynamic_cast<Capacitor*>(element[i].get())){
+                        matrixSolve.TRAN.Right[p->Right_index1].value+=(2*p->getValue()*p->previous_voltage/tstep+p->previous_current);
+                        matrixSolve.TRAN.Right[p->Right_index2].value-=(2*p->getValue()*p->previous_voltage/tstep+p->previous_current);
+                        p->previous_voltage=matrixSolve.TRAN.Answer[p->node1.index]-matrixSolve.TRAN.Answer[p->node2.index];
+                        p->previous_current= element_current_shower(i,matrixSolve.TRAN.Answer,tspent2,tstep,"TRAN");
+                        matrixSolve.TRAN.Right[p->Right_index1].value-=(2*p->getValue()*p->previous_voltage/tstep+p->previous_current);
+                        matrixSolve.TRAN.Right[p->Right_index2].value+=(2*p->getValue()*p->previous_voltage/tstep+p->previous_current);
+                    }
+                    else if(Inductor* p=dynamic_cast<Inductor*>(element[i].get())){
+                        matrixSolve.TRAN.Right[p->Right_index1].value+=(tstep*p->previous_voltage/(2*p->getValue())+p->previous_current);
+                        matrixSolve.TRAN.Right[p->Right_index2].value-=(tstep*p->previous_voltage/(2*p->getValue())+p->previous_current);
+                        p->previous_voltage=matrixSolve.TRAN.Answer[p->node1.index]-matrixSolve.TRAN.Answer[p->node2.index];
+                        p->previous_current= element_current_shower(i,matrixSolve.TRAN.Answer,tspent2,tstep,"TRAN");
+                        matrixSolve.TRAN.Right[p->Right_index1].value-=(tstep*p->previous_voltage/(2*p->getValue())+p->previous_current);
+                        matrixSolve.TRAN.Right[p->Right_index2].value+=(tstep*p->previous_voltage/(2*p->getValue())+p->previous_current);
+                    }
+                    else if(Vsin* p=dynamic_cast<Vsin*>(element[i].get())){
+                        matrixSolve.TRAN.Right[p->Right_index1].value=p->get_voltage(tspent2);
+                    }
+                    else if(Isin* p=dynamic_cast<Isin*>(element[i].get())){
+                        matrixSolve.TRAN.Right[p->Right_index1].value-=p->get_current(tspent2);
+                        matrixSolve.TRAN.Right[p->Right_index1].value+=p->get_current(tspent2+tstep);
+                        matrixSolve.TRAN.Right[p->Right_index2].value+=p->get_current(tspent2);
+                        matrixSolve.TRAN.Right[p->Right_index2].value-=p->get_current(tspent2+tstep);
+                    }
+                }
+            }
+            return true;
+
         }
-        if(t_spent==0)matrixSolve.Solve(matrixSolve.Primary_TRAN);
+        else{
+            if(tspent==0){
+                if(matrixSolve.LUsetter(matrixSolve.Primary_TRAN)){
+                    matrixSolve.Solve(matrixSolve.Primary_TRAN);
+                    matrixSolve.TRAN.Left.clear();
+                    matrixSolve.TRAN.Right.clear();
+                    vector<double> v(node.size(),0.0);
+                    matrixSolve.TRAN.Left.resize(node.size(),v);
+                    matrixSolve.TRAN.Right.resize(node.size());
+                    for(int i=0;i<node.size();i++){
+                        matrixSolve.TRAN.Right[i].is_node= true;
+                        matrixSolve.TRAN.Right[i].value=0.0;
+                        matrixSolve.TRAN.Right[i].index=i;
+                        if(node[i].is_ground)matrixSolve.TRAN.Left[i][i]+=1.0;
+                    }
+                    for(int i=0;i<element.size();i++){
+                        if(Capacitor* p=dynamic_cast<Capacitor*>(element[i].get())){
+                            p->previous_current= element_current_shower(i,matrixSolve.Primary_TRAN.Answer,0,tstep,"TRAN");
+                            p->previous_voltage=matrixSolve.Primary_TRAN.Answer[p->node1.index]-matrixSolve.Primary_TRAN.Answer[p->node2.index];
+                        }
+                        else if(Inductor* p=dynamic_cast<Inductor*>(element[i].get())){
+                            p->previous_current=0;
+                            p->previous_voltage=matrixSolve.Primary_TRAN.Answer[p->node1.index]-matrixSolve.Primary_TRAN.Answer[p->node2.index];
+                        }
+                        element[i]->Add_TRAN_Equation(matrixSolve,node.size(),tstep);
+                    }
+                    if(matrixSolve.LUsetter(matrixSolve.TRAN)){
+                        for(int i=0;i<element.size();i++){
+                            if(Capacitor* p=dynamic_cast<Capacitor*>(element[i].get())){
+                                for(int j=0;j<matrixSolve.TRAN.Right.size();j++){
+                                    if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node1.index)p->Right_index1=j;
+                                    if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node2.index)p->Right_index2=j;
+                                }
+                            }
+                            else if(Inductor* p=dynamic_cast<Inductor*>(element[i].get())){
+                                for(int j=0;j<matrixSolve.TRAN.Right.size();j++){
+                                    if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node1.index)p->Right_index1=j;
+                                    if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node2.index)p->Right_index2=j;
+                                }
+                            }
+                            else if(Vsin* p=dynamic_cast<Vsin*>(element[i].get())){
+                                for(int j=0;j<matrixSolve.TRAN.Right.size();j++){
+                                    if(!matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->TRAN_current_index)p->Right_index1=j;
+                                }
+                            }
+                            else if(Isin* p=dynamic_cast<Isin*>(element[i].get())){
+                                for(int j=0;j<matrixSolve.TRAN.Right.size();j++){
+                                    if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node1.index)p->Right_index1=j;
+                                    if(matrixSolve.TRAN.Right[j].is_node&&matrixSolve.TRAN.Right[j].index==p->node2.index)p->Right_index2=j;
+                                }
+                            }
+                        }
+                        return true;
+                    }
+                    else return false;
+                }
+                else return false;
+            }
+            else {
+                matrixSolve.Solve(matrixSolve.TRAN);
+                for(int i=0;i<element.size();i++){
+                    if(Capacitor* p=dynamic_cast<Capacitor*>(element[i].get())){
+                        matrixSolve.TRAN.Right[p->Right_index1].value+=(2*p->getValue()*p->previous_voltage/tstep+p->previous_current);
+                        matrixSolve.TRAN.Right[p->Right_index2].value-=(2*p->getValue()*p->previous_voltage/tstep+p->previous_current);
+                        p->previous_voltage=matrixSolve.TRAN.Answer[p->node1.index]-matrixSolve.TRAN.Answer[p->node2.index];
+                        p->previous_current= element_current_shower(i,matrixSolve.TRAN.Answer,tspent,tstep,"TRAN");
+                        matrixSolve.TRAN.Right[p->Right_index1].value-=(2*p->getValue()*p->previous_voltage/tstep+p->previous_current);
+                        matrixSolve.TRAN.Right[p->Right_index2].value+=(2*p->getValue()*p->previous_voltage/tstep+p->previous_current);
+                    }
+                    else if(Inductor* p=dynamic_cast<Inductor*>(element[i].get())){
+                        matrixSolve.TRAN.Right[p->Right_index1].value+=(tstep*p->previous_voltage/(2*p->getValue())+p->previous_current);
+                        matrixSolve.TRAN.Right[p->Right_index2].value-=(tstep*p->previous_voltage/(2*p->getValue())+p->previous_current);
+                        p->previous_voltage=matrixSolve.TRAN.Answer[p->node1.index]-matrixSolve.TRAN.Answer[p->node2.index];
+                        p->previous_current= element_current_shower(i,matrixSolve.TRAN.Answer,tspent,tstep,"TRAN");
+                        matrixSolve.TRAN.Right[p->Right_index1].value-=(tstep*p->previous_voltage/(2*p->getValue())+p->previous_current);
+                        matrixSolve.TRAN.Right[p->Right_index2].value+=(tstep*p->previous_voltage/(2*p->getValue())+p->previous_current);
+                    }
+                    else if(Vsin* p=dynamic_cast<Vsin*>(element[i].get())){
+                        matrixSolve.TRAN.Right[p->Right_index1].value=p->get_voltage(tspent);
+                    }
+                    else if(Isin* p=dynamic_cast<Isin*>(element[i].get())){
+                        matrixSolve.TRAN.Right[p->Right_index1].value-=p->get_current(tspent);
+                        matrixSolve.TRAN.Right[p->Right_index1].value+=p->get_current(tspent+tstep);
+                        matrixSolve.TRAN.Right[p->Right_index2].value+=p->get_current(tspent);
+                        matrixSolve.TRAN.Right[p->Right_index2].value-=p->get_current(tspent+tstep);
+                    }
+                }
+                return true;
+            }
+        }
     }
-    bool Print_DC(smatch match,double final_value,int index){
-        if(DC_LU_Needs_Update){
-            if(!matrixSolve.LUsetter(matrixSolve.DC))return false;
-            DC_LU_Needs_Update=0;
+    bool Print_DC(double final_value,int source_index){
+        if(has_changed_DC_matrix){
+            if(matrixSolve.LUsetter(matrixSolve.DC)) has_changed_DC_matrix=0;
+            else return false;
+        }
+        double first_value=element[source_index]->getValue();
+        if(element[source_index]->getType()=="V"){
+            for(int i=0;i<matrixSolve.DC.Right.size();i++){
+                if(!matrixSolve.DC.Right[i].is_node&&matrixSolve.DC.Right[i].index==element[source_index]->DC_current_index){
+                    matrixSolve.DC.Right[i].value-=first_value;
+                    matrixSolve.DC.Right[i].value+=final_value;
+                    matrixSolve.Solve(matrixSolve.DC);
+                    matrixSolve.DC.Right[i].value+=first_value;
+                    matrixSolve.DC.Right[i].value-=final_value;
+                    return true;
+                }
+            }
+        }
+        else if(element[source_index]->getType()=="I"){
+            for(int i=0;i<matrixSolve.DC.Right.size();i++){
+                if(matrixSolve.DC.Right[i].is_node&&matrixSolve.DC.Right[i].index==element[source_index]->node1.index&&!element[source_index]->node1.is_ground){
+                    matrixSolve.DC.Right[i].value-=first_value;
+                    matrixSolve.DC.Right[i].value+=final_value;
+                }
+                if(matrixSolve.DC.Right[i].is_node&&matrixSolve.DC.Right[i].index==element[source_index]->node2.index&&!element[source_index]->node2.is_ground){
+                    matrixSolve.DC.Right[i].value+=first_value;
+                    matrixSolve.DC.Right[i].value-=final_value;
+                }
+            }
+            matrixSolve.Solve(matrixSolve.DC);
+            for(int i=0;i<matrixSolve.DC.Right.size();i++){
+                if(matrixSolve.DC.Right[i].is_node&&matrixSolve.DC.Right[i].index==element[source_index]->node1.index&&!element[source_index]->node1.is_ground){
+                    matrixSolve.DC.Right[i].value+=first_value;
+                    matrixSolve.DC.Right[i].value-=final_value;
+                }
+                if(matrixSolve.DC.Right[i].is_node&&matrixSolve.DC.Right[i].index==element[source_index]->node2.index&&!element[source_index]->node2.is_ground){
+                    matrixSolve.DC.Right[i].value-=first_value;
+                    matrixSolve.DC.Right[i].value+=final_value;
+                }
+            }
+            return true;
         }
     }
 };
@@ -1806,7 +2064,7 @@ private:
             int number=(EndValue-StartValue)/Increment;
             for(int i=0;i<=number;i++){
                 StartValue+=double(i)*Increment;
-                if(circuit.Print_DC(match,StartValue, stoi(wanted_elements[0][2]))){
+                if(circuit.Print_DC(StartValue, stoi(wanted_elements[0][2]))){
                     if(wanted_elements[0][0]=="V") cout << "VoltageSource : "<< wanted_elements[0][1] << " _ Voltage : " << StartValue << " volt. DC :"<< endl;
                     else cout << "CurrentSource : " << wanted_elements[0][1] << " _ current : " << StartValue << " amp. DC :"<< endl;;
                     for(int j=1;j<wanted_elements.size();j++){
